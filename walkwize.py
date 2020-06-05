@@ -6,8 +6,6 @@ import osmnx as ox
 import numpy as np
 import scipy
 
-sca
-
 def get_node_df(location):
 	#Inputs: location as tuple of coords (lat, lon)
 	#Returns: 1-line dataframe to display an icon at that location on a map
