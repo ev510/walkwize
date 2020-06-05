@@ -1,7 +1,6 @@
 name: walkwize
 channels:
 - conda-forge
-- anacoda
 dependencies:
 - python=3.7
 - conda
@@ -11,6 +10,5 @@ dependencies:
 - scipy
 - pip
 - osmnx
-- networkx
 - pip:
   - streamlit
