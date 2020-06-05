@@ -8,9 +8,6 @@ dependencies:
 - matplotlib
 - numpy
 - scipy
-- scikit-learn
-- networkx
-- osmnx
 - pip
 - pip:
   - streamlit
