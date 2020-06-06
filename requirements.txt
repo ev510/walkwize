@@ -2,3 +2,4 @@ geopandas
 rtree==0.8
 osmnx
 streamlit
+scipy
