@@ -1,4 +1,4 @@
-streamlit==0.59
 geopandas
 rtree
-osmnx==0.13.0
+osmnx
+streamlit
