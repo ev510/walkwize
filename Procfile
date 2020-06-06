@@ -1,1 +1,1 @@
-web: sh setup.sh && streamlit run walkwize.py
+web: streamlit run doggo.py --server.port $PORT --browser.serverAddress https://dm-doggo.herokuapp.com
