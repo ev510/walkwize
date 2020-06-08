@@ -1,5 +1,5 @@
 geopandas
-rtree==0.8
+rtree==0.9
 osmnx
 streamlit
 scipy
