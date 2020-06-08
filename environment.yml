@@ -10,6 +10,6 @@ dependencies:
 - scipy
 - pip
 - osmnx
-- rtree 
+- rtree
 - pip:
   - streamlit

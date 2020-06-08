@@ -4,7 +4,7 @@ import pandas as pd
 import networkx as nx
 import osmnx as ox
 import numpy as np
-import scipy
+import scipy.interpolate as interpolate
 
 def get_node_df(location):
 	#Inputs: location as tuple of coords (lat, lon)
