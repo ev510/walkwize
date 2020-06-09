@@ -68,18 +68,13 @@ def make_linelayer(df, color_array):
 	    getWidth = '5')
 
 def make_pedlayer(df, color_array):
-
 	return pdk.Layer(
 		"HeatmapLayer",
 		data=df,
-		opacity=0.3,
-		#get_position=["centroid_y", "centroid_x"],
-		get_position=["longitude", "latitude"],
+		opacity=0.1,
+		get_position=["centroid_x", "centroid_y"],
 		aggregation="mean",
-		get_weight="total_of_directions")
-		#get_weight="ped_rate")
-
-
+		get_weight="ped_rate")
 
 ############################################################################
 
@@ -103,7 +98,6 @@ def get_ped_station_data():
 
 	return ped_stations
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_ped_data_current():
 	ped_current = pd.read_json("https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
 	ped_current = ped_current.groupby('sensor_id')['total_of_directions'].sum().to_frame()
@@ -242,8 +236,8 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 	start_node_df = get_node_df(start_location)
 	icon_layer = make_iconlayer(start_node_df)
 	optimized_layer = make_linelayer(opt_df, '[0,0,179]')
-	ped_layer = make_pedlayer(ped_current,COLOR_BREWER_RED)
-	#ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']],COLOR_BREWER_RED)
+	#ped_layer = make_pedlayer(ped_current,COLOR_BREWER_RED)
+	ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']],COLOR_BREWER_RED)
 
 
 	# type(gdf_edges)
@@ -262,9 +256,6 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 
 
 
-
-
-
 ############################################################################
 
 G, gdf_nodes, gdf_edges= get_map_data()
@@ -275,19 +266,53 @@ st.title("WalkWize")
 st.header("*Take the path least traveled.*")
 st.markdown("Let's plan your walk.")
 
+gdf_edges['ped_rate'] = scipy.interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.ones_like(np.array(ped_current['total_of_directions'])),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+COLOR_BREWER_RED = [[255,247,236],[254,232,200],[253,212,158],[253,187,132],[252,141,89],[239,101,72],[215,48,31],[179,0,0],[127,0,0]]
+
+ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']],COLOR_BREWER_RED)
 
 
 
 
-gdf_edges['ped_rate'] = scipy.interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='linear',rescale=False,fill_value=0)
+#
+# # list of edge values for the orginal graph
+# ev = [edge_centrality[edge + (0,)] for edge in G.edges()]
+#
+#
+# import matplotlib.colors as colors
+# import matplotlib.cm as cm
+#
+# # color scale converted to list of colors for graph edges
+# norm = colors.Normalize(vmin=0, vmax=max(gdf_edges['ped_rate']))
+# cmap = cm.ScalarMappable(norm=norm, cmap=cm.inferno)
+# ec = [cmap.to_rgba(cl) for cl in ev]
+#
+#
+# ec = [cmap.to_rgba(d[]) for u, v, k, d in G.edges(keys=True, data=True)]
+#
+# ec = ['r' if d['highway']=='living_street' else 'gray' for u, v, k, d in G.edges(keys=True, data=True) ]
+# ox.plot_graph(G, fig_height=16,  edge_color=ec)
+#
+#
+# # color the edges in the original graph with closeness centralities in the line graph
+# fig, ax = ox.plot_graph(G, bgcolor='k', axis_off=True, node_size=0,
+#                         edge_color=ec, edge_linewidth=1.5, edge_alpha=1)
+
+
+
+
+
+
+
+
+
 
 
 input1 = st.text_input('Where do you want to start?')
 input2 = st.text_input('And where will you end?')
 
-COLOR_BREWER_RED = [[255,247,236],[254,232,200],[253,212,158],[253,187,132],[252,141,89],[239,101,72],[215,48,31],[179,0,0],[127,0,0]]
 
-ped_layer = make_pedlayer(ped_current,COLOR_BREWER_RED)
+
 
 
 submit = st.button('Find route', key=1)
