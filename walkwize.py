@@ -4,6 +4,7 @@ import pandas as pd
 import networkx as nx
 import osmnx as ox
 import numpy as np
+import scipy
 import scipy.interpolate as interpolate
 
 ## Credit to Dave Montiero of Doggo
@@ -92,11 +93,15 @@ def get_map_data():
 	gdf_edges['centroid_x'] = gdf_edges.apply(lambda r: r.geometry.centroid.x, axis=1)
 	gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=1)
 
+	return G, gdf_nodes, gdf_edges
+
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_ped_station_data():
 	ped_stations = pd.read_json("https://data.melbourne.vic.gov.au/resource/h57g-5234.json")
 	ped_stations.set_index("sensor_id",inplace=True)
+
+	return ped_stations
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_ped_data_current():
@@ -104,7 +109,7 @@ def get_ped_data_current():
 	ped_current = ped_current.groupby('sensor_id')['total_of_directions'].sum().to_frame()
 	ped_current = ped_current.join(ped_stations[['latitude','longitude']])
 
-	return G, gdf_nodes, gdf_edges, ped_current, ped_stations
+	return ped_current
 
 def get_ped_historic_data():
 	pass
@@ -262,16 +267,19 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 
 ############################################################################
 
-G, gdf_nodes, gdf_edges, ped_current, ped_stations = get_map_data()
-
+G, gdf_nodes, gdf_edges= get_map_data()
+ped_stations = get_ped_station_data()
+ped_current = get_ped_data_current()
 
 st.title("WalkWize")
 st.header("*Take the path least traveled.*")
 st.markdown("Let's plan your walk.")
 
 
-gdf_edges['ped_rate'] = scipy.interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='linear',rescale=False,fill_value=0)
 
+
+
+gdf_edges['ped_rate'] = scipy.interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='linear',rescale=False,fill_value=0)
 
 
 input1 = st.text_input('Where do you want to start?')
