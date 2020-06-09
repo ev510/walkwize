@@ -6,6 +6,8 @@ import osmnx as ox
 import numpy as np
 import scipy.interpolate as interpolate
 
+## Credit to Dave Montiero of Doggo
+
 def get_node_df(location):
 	#Inputs: location as tuple of coords (lat, lon)
 	#Returns: 1-line dataframe to display an icon at that location on a map
@@ -64,7 +66,6 @@ def make_linelayer(df, color_array):
 	    getColor = color_array,
 	    getWidth = '5')
 
-
 def make_pedlayer(df, color_array):
 
 	return pdk.Layer(
@@ -91,21 +92,22 @@ def get_map_data():
 	gdf_edges['centroid_x'] = gdf_edges.apply(lambda r: r.geometry.centroid.x, axis=1)
 	gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=1)
 
+
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+def get_ped_station_data():
 	ped_stations = pd.read_json("https://data.melbourne.vic.gov.au/resource/h57g-5234.json")
 	ped_stations.set_index("sensor_id",inplace=True)
 
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+def get_ped_data_current():
 	ped_current = pd.read_json("https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
 	ped_current = ped_current.groupby('sensor_id')['total_of_directions'].sum().to_frame()
 	ped_current = ped_current.join(ped_stations[['latitude','longitude']])
 
-
-	gdf_edges['ped_rate'] = scipy.interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='linear',rescale=False,fill_value=0)
-
 	return G, gdf_nodes, gdf_edges, ped_current, ped_stations
 
-
-
-############################################################################
+def get_ped_historic_data():
+	pass
 
 def get_map_bounds(gdf_nodes, route1, route2):
 	#Inputs: node df, and two lists of nodes along path
@@ -143,10 +145,6 @@ def nodes_to_lats_lons(nodes, path_nodes):
 		dest_lons.append(nodes.loc[path_nodes[i+1]]['x'])
 
 	return (source_lats, source_lons, dest_lats, dest_lons)
-
-
-
-############################################################################
 
 def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 	#Inputs: Graph, nodes, edges, source, end, distance to walk, pace = speed, w2 bool = avoid busy roads
@@ -270,6 +268,11 @@ G, gdf_nodes, gdf_edges, ped_current, ped_stations = get_map_data()
 st.title("WalkWize")
 st.header("*Take the path least traveled.*")
 st.markdown("Let's plan your walk.")
+
+
+gdf_edges['ped_rate'] = scipy.interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='linear',rescale=False,fill_value=0)
+
+
 
 input1 = st.text_input('Where do you want to start?')
 input2 = st.text_input('And where will you end?')
