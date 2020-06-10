@@ -25,16 +25,21 @@ def set_up_database():
 
 ################################################################################
 def make_future():
-    # Creating the next 24 hours
-    now = dt.datetime.now()
+    # Creating the next 24 hours of AUSTRALIA time
+    now = dt.datetime.utcnow()
     # Round to the next hour
-    now -= dt.datetime.timedelta(hours = -1, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
+    now -= dt.timedelta(hours = -11, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
     # Create next 24 hours
-    future_times = pd.date_range(now, end=dt.datetime.now()+dt.timedelta(hours=24),freq='h').to_frame()
+    future_times = pd.date_range(now, now+dt.timedelta(hours=24),freq='h')
+    type(future_times)
     return future_times
 
-future = make_future()
+
+
+
 ################################################################################
+
+
 def expand_time_index(df):
     ds = df.index.to_series()
     df['month'] = ds.dt.month
@@ -58,6 +63,7 @@ def single_station_negative_binomial_regression(station_ID):
 
 
     ##---------------- Select features --------------------##
+    # TODO: Should call expand_time_index
     ds = df.index.to_series()
     df_prepped = pd.DataFrame()
     df_prepped['month'] = ds.dt.month
@@ -100,7 +106,7 @@ def single_station_negative_binomial_regression(station_ID):
     #print(nb2_training_results.summary())
 
 
-    nb2_predictions = nb2_training_results.get_prediction(X_test)
+    #nb2_predictions = nb2_training_results.get_prediction(X_test)
     predictions_summary_frame = nb2_predictions.summary_frame()
     #print(predictions_summary_frame)
 
@@ -110,6 +116,7 @@ def single_station_negative_binomial_regression(station_ID):
 
     poisson_predictions = poisson_training_results.get_prediction(X_test).summary_frame()['mean']
     nb2_predictions = nb2_training_results.get_prediction(X_test).summary_frame()['mean']
+
     poisson_training_results.rmse =  sm.tools.eval_measures.rmse(df_test['hourly_counts'], poisson_predictions)
     nb2_training_results.rmse = sm.tools.eval_measures.rmse(df_test['hourly_counts'], nb2_predictions)
 
@@ -169,13 +176,32 @@ for SID in station_IDs:
     stations_summary = stations_summary.append(row)
 
 
-stations_summary
 
-future = make_future()
+future = make_future().to_frame()
 type(future)
+future = expand_time_index(future)
+future['hourly_counts']=0
+expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
+
+y_future, X_future = dmatrices(expr, future, return_type='dataframe')
+future_predicted = poisson_training_results[22].get_prediction(X_future).summary_frame()['mean']
 
 
-nb2_predictions = nb2_training_results.get_prediction(X_test)
+
+a = plt.figure();
+axes = a.add_axes([.1, .1, .8, .8]);
+axes.plot(poisson_training_results[22].get_prediction(X_future).summary_frame()['mean'],'.',label='f');
+axes.legend();
+a
+
+
+
+
+
+
+
+
+
 
 
 a = plotting_nbr_results(poisson_training_results[22],nb2_training_results[22])
