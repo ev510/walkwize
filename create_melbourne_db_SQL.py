@@ -31,6 +31,7 @@ ped_historic.to_sql('data_ped_historic', engine, if_exists='replace')
 # LOAD THE STATION INFORMATION
 ped_stations = pd.read_csv('./data/Pedestrian_Counting_System_Sensor_Locations.csv')
 ped_stations.set_index("sensor_id",inplace=True)
+ped_stations['installation_date'] = pd.to_datetime(ped_stations['installation_date'])
 ped_stations.to_sql('data_ped_stations', engine, if_exists='replace')
 
 
@@ -52,3 +53,16 @@ df_temp_min.to_sql('data_min_temp', engine, if_exists='replace')
 df_solar = pd.read_csv('./data/IDCJAC0016_086338_1800_Data.csv')
 df_solar.columns = ['product_code', 'station_Number', 'year', 'month', 'day', 'daily_solar_exposure_MJ/mm']
 df_solar.to_sql('data_solar', engine, if_exists='replace')
+
+
+
+
+###### EDA #######
+ped_historic.head()
+ped_historic.groupby(by='sensor_id')['date_time'].agg(["min","max"])
+
+ped_stations['installation_date'] = pd.to_datetime(ped_stations['installation_date'])
+ped_stations.status=='A'
+ped_stations.installation_date
+ped_stations.dtypes
+ped
