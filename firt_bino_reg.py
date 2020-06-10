@@ -9,6 +9,7 @@ import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import statsmodels.formula.api as smf
 
+import datetime as dt
 ##---------------- DATABASE --------------------##
 dbname = 'melbourne_db'
 username = 'emilyvoytek'
@@ -18,13 +19,49 @@ pswd = 'founded1835'
 engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname))
 # Replace localhost with IP address if accessing a remote server
 
+
+
+dt.datetime.now()
+
 poisson_training_results = {}
 nb2_training_results = {}
 
-station_IDs= [23,24,25]
+station_IDs= range(24,27)
 for station_ID in station_IDs:
     df_test, df_train, poisson_training_results[station_ID], nb2_training_results[station_ID],y_train, y_test, X_train, X_test = single_station_negative_binomial_regression(station_ID)
     #nb2_training[station_ID] = nb2_training_results
+
+stations_summary = pd.DataFrame(columns=['poisson_rmse','nb2_rmse']);
+station_IDs= range(24,27)
+
+for station_ID in station_IDs:
+    row = pd.Series(name=station_ID, {'poisson_rmse':poisson_training_results[station_ID].rmse, 'nb2_rmse':nb2_training_results[station_ID].rmse})
+    print("poisson RMSE:", poisson_training_results[station_ID].rmse);
+    print("nb2 RMSE:", nb2_training_results[station_ID].rmse);
+
+
+
+
+
+
+# Creating the next 24 hours
+now = dt.datetime.now()
+# Round to the next hour
+now -= datetime.timedelta(hours = -1, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
+# Create next 24 hours
+future_times = pd.date_range(now, end=dt.datetime.now()+dt.timedelta(hours=24),freq='h').to_frame()
+
+
+def expand_time_index(df):
+    ds = df.index.to_series()
+    df['month'] = ds.dt.month
+    df['day_of_week'] = ds.dt.dayofweek
+    #df_prepped['day']= ds.dt.day
+    #df_prepped['hour']=ds.dt.hour
+    df['sin_hour'] = np.sin(2*np.pi*ds.dt.hour/24)
+    df['cos_hour'] = np.cos(2*np.pi*ds.dt.hour/24)
+    return df
+
 
 np.random.RandomState(42)
 
@@ -35,7 +72,7 @@ np.random.RandomState(42)
     df = pd.read_sql_query(sql_query2,engine)
 
 
-df
+
 
 def single_station_negative_binomial_regression(station_ID):
 
@@ -97,8 +134,28 @@ def single_station_negative_binomial_regression(station_ID):
 
     predicted_counts=predictions_summary_frame['mean']
     #actual_counts = y_test['hourly_counts']
-    print(station_ID)
+
+
+    poisson_predictions = poisson_training_results.get_prediction(X_test).summary_frame()['mean']
+    nb2_predictions = nb2_training_results.get_prediction(X_test).summary_frame()['mean']
+
+
+
+    poisson_training_results.rmse =  sm.tools.eval_measures.rmse(df_test['hourly_counts'], poisson_predictions)
+    nb2_training_results.rmse = sm.tools.eval_measures.rmse(df_test['hourly_counts'], nb2_predictions)
+
     return df_test, df_train, poisson_training_results, nb2_training_results, y_train, y_test, X_train, X_test
+
+
+
+
+
+
+
+
+
+
+
 
 def plotting_nbr_results(poisson_training_results,nb2_training_results):
     poisson_predictions = poisson_training_results.get_prediction(X_test).summary_frame()['mean']
