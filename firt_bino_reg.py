@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import statsmodels.formula.api as smf
 
 import datetime as dt
+import pickle
 
 ################################################################################
 def set_up_database():
@@ -32,7 +33,13 @@ def make_future():
     # Create next 24 hours
     future_times = pd.date_range(now, now+dt.timedelta(hours=24),freq='h')
     type(future_times)
-    return future_times
+
+    future = make_future().to_frame()
+    future = expand_time_index(future)
+    future['hourly_counts']=0
+    expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
+    y_future, X_future = dmatrices(expr, future, return_type='dataframe')
+    return X_future
 
 
 
@@ -107,10 +114,10 @@ def single_station_negative_binomial_regression(station_ID):
 
 
     #nb2_predictions = nb2_training_results.get_prediction(X_test)
-    predictions_summary_frame = nb2_predictions.summary_frame()
+    #predictions_summary_frame = nb2_predictions.summary_frame()
     #print(predictions_summary_frame)
 
-    predicted_counts=predictions_summary_frame['mean']
+    #predicted_counts=predictions_summary_frame['mean']
     #actual_counts = y_test['hourly_counts']
 
 
@@ -147,8 +154,9 @@ def plotting_nbr_results(poisson_training_results,nb2_training_results):
 ################################################################################
 ##### WHERE STUFF RUNS ####
 
+engine = set_up_database()
 
-set_up_database;
+
 # For now, I will save all model results.
 poisson_training_results = {}
 nb2_training_results = {}
@@ -159,7 +167,11 @@ y_test = {}
 X_train = {}
 X_test = {}
 
-station_IDs= range(20,30)
+#station_IDs= range(20,30)
+station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
+            22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
+            44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
+
 for SID in station_IDs:
     df_test[SID], df_train[SID], poisson_training_results[SID], nb2_training_results[SID],y_train[SID], y_test[SID], X_train[SID], X_test[SID] = single_station_negative_binomial_regression(SID)
 
@@ -177,13 +189,8 @@ for SID in station_IDs:
 
 
 
-future = make_future().to_frame()
-type(future)
-future = expand_time_index(future)
-future['hourly_counts']=0
-expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
 
-y_future, X_future = dmatrices(expr, future, return_type='dataframe')
+
 future_predicted = poisson_training_results[22].get_prediction(X_future).summary_frame()['mean']
 
 
@@ -196,6 +203,10 @@ a
 
 
 
+
+pickle.dump( [df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test], open( "save.p", "wb" ) )
+
+[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )
 
 
 
