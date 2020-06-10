@@ -151,14 +151,14 @@ y_test = {}
 X_train = {}
 X_test = {}
 
-station_IDs= range(24,27)
+station_IDs= range(20,30)
 for SID in station_IDs:
     df_test[SID], df_train[SID], poisson_training_results[SID], nb2_training_results[SID],y_train[SID], y_test[SID], X_train[SID], X_test[SID] = single_station_negative_binomial_regression(SID)
 
-stations_summary = pd.DataFrame(columns=['poisson_rmse','nb2_rmse','training_length','min','max','mean' ])
+stations_summary = pd.DataFrame(columns=['min','max','mean','training_length','poisson_rmse','nb2_rmse'])
 for SID in station_IDs:
-    row = pd.Series({'poisson_rmse':poisson_training_results[SID].rmse,
-                        'nb2_rmse':nb2_training_results[SID].rmse,
+    row = pd.Series({'poisson_rmse':poisson_training_results[SID].rmse.round(),
+                        'nb2_rmse':nb2_training_results[SID].rmse.round(),
                         'training_length':len(df_train[SID]),
                         'min':df_train[SID]['hourly_counts'].min(),
                         'max':df_train[SID]['hourly_counts'].max(),
@@ -167,11 +167,7 @@ for SID in station_IDs:
                         name=SID)
     stations_summary = stations_summary.append(row)
 
-df_train[22]['hourly_counts'].mean()
 
-
-b = poisson_training_results.keys()
-b
 stations_summary
 
 
