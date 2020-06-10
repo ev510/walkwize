@@ -6,6 +6,7 @@ import osmnx as ox
 import numpy as np
 import scipy
 import scipy.interpolate as interpolate
+import datetime
 
 ## Credit to Dave Montiero of Doggo
 
@@ -26,8 +27,6 @@ def get_text_df(text, location):
 	#Inputs: text to display and location as tuple of coords (lat, lon)
 	#Returns: 1-line dataframe to display text at that location on a map
 	return pd.DataFrame({'lat':[location[0]], 'lon':[location[1]], 'text':text})
-
-############################################################################
 
 def make_iconlayer(df):
 	# #Inputs: df with [lat, lon, icon_data]
@@ -76,20 +75,18 @@ def make_pedlayer(df, color_array):
 		aggregation="mean",
 		get_weight="ped_rate")
 
-############################################################################
-
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_map_data():
 	#Returns: map as graph from graphml
 	#Cached by Streamlit
-	G = ox.graph_from_bbox(-37.8061,-37.8200,144.9769, 144.9569, network_type='walk')
+	#G = ox.graph_from_bbox(-37.8061,-37.8200,144.9769, 144.9569, network_type='walk')
+	G = ox.graph_from_bbox(-37.8000,-37.8250,144.9800, 144.9500, network_type='walk')
 
 	gdf_nodes, gdf_edges = ox.utils_graph.graph_to_gdfs(G, nodes=True, edges=True, node_geometry=True, fill_edge_geometry=True)
 	gdf_edges['centroid_x'] = gdf_edges.apply(lambda r: r.geometry.centroid.x, axis=1)
 	gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=1)
 
 	return G, gdf_nodes, gdf_edges
-
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_ped_station_data():
@@ -255,67 +252,28 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 
 
 
-
 ############################################################################
 
 G, gdf_nodes, gdf_edges= get_map_data()
 ped_stations = get_ped_station_data()
 ped_current = get_ped_data_current()
 
-st.title("WalkWize")
-st.header("*Take the path least traveled.*")
-st.markdown("Let's plan your walk.")
+st.sidebar.title("WalkWize");
+st.sidebar.markdown("*Take the path least traveled*");
+st.sidebar.header("Let's plan your walk!");
+
+input1 = st.sidebar.text_input('Where will you start?');
+input2 = st.sidebar.text_input('Where are you going?');
+date = st.sidebar.date_input('When you you want to leave?',  max_value=datetime.datetime(2020, 12, 31, 0, 0));
+time = st.sidebar.time_input('What time do you want to leave?', value=None, key=None);
 
 gdf_edges['ped_rate'] = scipy.interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.ones_like(np.array(ped_current['total_of_directions'])),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+# COLOR_BREWER_RED is not activated
 COLOR_BREWER_RED = [[255,247,236],[254,232,200],[253,212,158],[253,187,132],[252,141,89],[239,101,72],[215,48,31],[179,0,0],[127,0,0]]
-
 ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']],COLOR_BREWER_RED)
 
 
-
-
-#
-# # list of edge values for the orginal graph
-# ev = [edge_centrality[edge + (0,)] for edge in G.edges()]
-#
-#
-# import matplotlib.colors as colors
-# import matplotlib.cm as cm
-#
-# # color scale converted to list of colors for graph edges
-# norm = colors.Normalize(vmin=0, vmax=max(gdf_edges['ped_rate']))
-# cmap = cm.ScalarMappable(norm=norm, cmap=cm.inferno)
-# ec = [cmap.to_rgba(cl) for cl in ev]
-#
-#
-# ec = [cmap.to_rgba(d[]) for u, v, k, d in G.edges(keys=True, data=True)]
-#
-# ec = ['r' if d['highway']=='living_street' else 'gray' for u, v, k, d in G.edges(keys=True, data=True) ]
-# ox.plot_graph(G, fig_height=16,  edge_color=ec)
-#
-#
-# # color the edges in the original graph with closeness centralities in the line graph
-# fig, ax = ox.plot_graph(G, bgcolor='k', axis_off=True, node_size=0,
-#                         edge_color=ec, edge_linewidth=1.5, edge_alpha=1)
-
-
-
-
-
-
-
-
-
-
-
-input1 = st.text_input('Where do you want to start?')
-input2 = st.text_input('And where will you end?')
-
-
-
-
-
-submit = st.button('Find route', key=1)
+submit = st.sidebar.button('Find route', key=1)
 if not submit:
 	st.pydeck_chart(pdk.Deck(
 		map_style="mapbox://styles/mapbox/light-v9",
@@ -324,3 +282,8 @@ if not submit:
 else:
 	with st.spinner('Routing...'):
 		source_to_dest(G, gdf_nodes, gdf_edges, input1, input2)
+
+
+slider = st.slider('How much do you want to avoid people?',0,100)
+timeframe = st.radio("Using what paradigm?",
+									('Pre-COVID', 'Current'))
