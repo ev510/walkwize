@@ -1,3 +1,4 @@
+
 from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
 import psycopg2
@@ -10,48 +11,29 @@ import matplotlib.pyplot as plt
 import statsmodels.formula.api as smf
 
 import datetime as dt
-##---------------- DATABASE --------------------##
-dbname = 'melbourne_db'
-username = 'emilyvoytek'
-pswd = 'founded1835'
 
-## 'engine' is a connection to a database
-engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname))
-# Replace localhost with IP address if accessing a remote server
+################################################################################
+def set_up_database():
+    dbname = 'melbourne_db'
+    username = 'emilyvoytek'
+    pswd = 'founded1835'
 
+    ## 'engine' is a connection to a database
+    engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname))
+    # Replace localhost with IP address if accessing a remote server\
+    return engine
 
+################################################################################
+def make_future():
+    # Creating the next 24 hours
+    now = dt.datetime.now()
+    # Round to the next hour
+    now -= datetime.timedelta(hours = -1, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
+    # Create next 24 hours
+    future_times = pd.date_range(now, end=dt.datetime.now()+dt.timedelta(hours=24),freq='h').to_frame()
+    return future_times
 
-dt.datetime.now()
-
-poisson_training_results = {}
-nb2_training_results = {}
-
-station_IDs= range(24,27)
-for station_ID in station_IDs:
-    df_test, df_train, poisson_training_results[station_ID], nb2_training_results[station_ID],y_train, y_test, X_train, X_test = single_station_negative_binomial_regression(station_ID)
-    #nb2_training[station_ID] = nb2_training_results
-
-stations_summary = pd.DataFrame(columns=['poisson_rmse','nb2_rmse']);
-station_IDs= range(24,27)
-
-for station_ID in station_IDs:
-    row = pd.Series(name=station_ID, {'poisson_rmse':poisson_training_results[station_ID].rmse, 'nb2_rmse':nb2_training_results[station_ID].rmse})
-    print("poisson RMSE:", poisson_training_results[station_ID].rmse);
-    print("nb2 RMSE:", nb2_training_results[station_ID].rmse);
-
-
-
-
-
-
-# Creating the next 24 hours
-now = dt.datetime.now()
-# Round to the next hour
-now -= datetime.timedelta(hours = -1, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
-# Create next 24 hours
-future_times = pd.date_range(now, end=dt.datetime.now()+dt.timedelta(hours=24),freq='h').to_frame()
-
-
+################################################################################
 def expand_time_index(df):
     ds = df.index.to_series()
     df['month'] = ds.dt.month
@@ -62,18 +44,7 @@ def expand_time_index(df):
     df['cos_hour'] = np.cos(2*np.pi*ds.dt.hour/24)
     return df
 
-
-np.random.RandomState(42)
-
-
-    sql_query = """SELECT MIN() FROM data_ped_historic WHERE sensor_id = {0} AND year < 2020 AND year > 2016;""".format(str(station_ID))
-
-    sql_query2 = """SELECT sensor_id, MIN(date_time), MAX(date_time) FROM data_ped_historic GROUP BY sensor_id"""
-    df = pd.read_sql_query(sql_query2,engine)
-
-
-
-
+################################################################################
 def single_station_negative_binomial_regression(station_ID):
 
     ##---------------- Query SQL database --------------------##
@@ -138,25 +109,15 @@ def single_station_negative_binomial_regression(station_ID):
 
     poisson_predictions = poisson_training_results.get_prediction(X_test).summary_frame()['mean']
     nb2_predictions = nb2_training_results.get_prediction(X_test).summary_frame()['mean']
-
-
-
     poisson_training_results.rmse =  sm.tools.eval_measures.rmse(df_test['hourly_counts'], poisson_predictions)
     nb2_training_results.rmse = sm.tools.eval_measures.rmse(df_test['hourly_counts'], nb2_predictions)
 
+    print(station_ID)
+
     return df_test, df_train, poisson_training_results, nb2_training_results, y_train, y_test, X_train, X_test
 
-
-
-
-
-
-
-
-
-
-
-
+################################################################################
+## TODO: CURRENTLY BROKEN ##
 def plotting_nbr_results(poisson_training_results,nb2_training_results):
     poisson_predictions = poisson_training_results.get_prediction(X_test).summary_frame()['mean']
     nb2_predictions = nb2_training_results.get_prediction(X_test).summary_frame()['mean']
@@ -171,4 +132,49 @@ def plotting_nbr_results(poisson_training_results,nb2_training_results):
     axes.legend();
     return a;
 
-a = plotting_nbr_results(poisson_training_results,nb2_training_results)
+
+
+################################################################################
+################################################################################
+################################################################################
+##### WHERE STUFF RUNS ####
+
+
+set_up_database;
+# For now, I will save all model results.
+poisson_training_results = {}
+nb2_training_results = {}
+df_test = {}
+df_train = {}
+y_train = {}
+y_test = {}
+X_train = {}
+X_test = {}
+
+station_IDs= range(24,27)
+for SID in station_IDs:
+    df_test[SID], df_train[SID], poisson_training_results[SID], nb2_training_results[SID],y_train[SID], y_test[SID], X_train[SID], X_test[SID] = single_station_negative_binomial_regression(SID)
+
+stations_summary = pd.DataFrame(columns=['poisson_rmse','nb2_rmse']);
+
+for station_ID in station_IDs:
+    row = pd.Series({'poisson_rmse':poisson_training_results[station_ID].rmse, 'nb2_rmse':nb2_training_results[station_ID].rmse},name=station_ID)
+    stations_summary = stations_summary.append(row)
+
+
+b = poisson_training_results.keys()
+
+
+a = plotting_nbr_results(poisson_training_results[22],nb2_training_results[22])
+
+
+
+
+
+np.random.RandomState(42)
+
+
+    sql_query = """SELECT MIN() FROM data_ped_historic WHERE sensor_id = {0} AND year < 2020 AND year > 2016;""".format(str(station_ID))
+
+    sql_query2 = """SELECT sensor_id, MIN(date_time), MAX(date_time) FROM data_ped_historic GROUP BY sensor_id"""
+    df = pd.read_sql_query(sql_query2,engine)
