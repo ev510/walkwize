@@ -28,11 +28,12 @@ def make_future():
     # Creating the next 24 hours
     now = dt.datetime.now()
     # Round to the next hour
-    now -= datetime.timedelta(hours = -1, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
+    now -= dt.datetime.timedelta(hours = -1, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
     # Create next 24 hours
     future_times = pd.date_range(now, end=dt.datetime.now()+dt.timedelta(hours=24),freq='h').to_frame()
     return future_times
 
+future = make_future()
 ################################################################################
 def expand_time_index(df):
     ds = df.index.to_series()
@@ -170,7 +171,11 @@ for SID in station_IDs:
 
 stations_summary
 
+future = make_future()
+type(future)
 
+
+nb2_predictions = nb2_training_results.get_prediction(X_test)
 
 
 a = plotting_nbr_results(poisson_training_results[22],nb2_training_results[22])
