@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
 import psycopg2
 import pandas as pd
-
+import datetime as dt
 
 dbname = 'melbourne_db'
 username = 'emilyvoytek'
@@ -30,10 +30,12 @@ ped_historic.to_sql('data_ped_historic', engine, if_exists='replace')
 
 # LOAD THE STATION INFORMATION
 ped_stations = pd.read_csv('./data/Pedestrian_Counting_System_Sensor_Locations.csv')
-ped_stations.set_index("sensor_id",inplace=True)
 ped_stations['installation_date'] = pd.to_datetime(ped_stations['installation_date'])
-ped_stations.to_sql('data_ped_stations', engine, if_exists='replace')
 
+ped_stations.set_index("sensor_id",inplace=True)
+ped_stations = ped_stations.sort_index()
+ped_stations.to_sql('data_ped_stations', engine, if_exists='replace')
+ped_stations
 
 # LOAD HISTORIC WEATHER DATA
 df_rain = pd.read_csv('./data/IDCJAC0009_086338_1800_Data.csv')
@@ -58,11 +60,16 @@ df_solar.to_sql('data_solar', engine, if_exists='replace')
 
 
 ###### EDA #######
-ped_historic.head()
+
+def identify_useable_stations(ped_stations):
+    # Active stations, installed before Jan 01, 2018
+    ped_stations_to_use = ped_stations[(ped_stations.installation_date<dt.datetime(2018,1,1,0,0,0)) & (ped_stations['status']=='A')].index
+    return ped_stations_to_use
+
+index = identify_useable_stations(ped_stations)
+
 ped_historic.groupby(by='sensor_id')['date_time'].agg(["min","max"])
 
-ped_stations['installation_date'] = pd.to_datetime(ped_stations['installation_date'])
-ped_stations.status=='A'
-ped_stations.installation_date
-ped_stations.dtypes
-ped
+
+
+ped_stations
