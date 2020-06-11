@@ -4,3 +4,7 @@ osmnx
 streamlit
 scipy
 psycopg2
+pandas
+matplotlib
+numpy
+scipy
