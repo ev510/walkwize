@@ -287,7 +287,7 @@ st.sidebar.header("Let's plan your walk!");
 
 input1 = st.sidebar.text_input('Where will you start?');
 input2 = st.sidebar.text_input('Where are you going?');
-date = st.sidebar.date_input('When you you want to leave?',  max_value=datetime.datetime(2020, 12, 31, 0, 0));
+date = st.sidebar.date_input('When you you want to leave?',  max_value=dt.datetime(2020, 12, 31, 0, 0));
 time = st.sidebar.time_input('What time do you want to leave?', value=None, key=None);
 
 gdf_edges['ped_rate'] = scipy.interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.ones_like(np.array(ped_current['total_of_directions'])),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
