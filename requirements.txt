@@ -3,4 +3,3 @@ rtree==0.9
 osmnx
 streamlit
 scipy
-psycopg2

@@ -15,8 +15,8 @@ import streamlit as st
 import timeit
 
 from patsy import dmatrices
-#from sqlalchemy import create_engine
-#from sqlalchemy_utils import database_exists, create_database
+from sqlalchemy import create_engine
+from sqlalchemy_utils import database_exists, create_database
 
 
 
