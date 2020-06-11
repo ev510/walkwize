@@ -188,7 +188,7 @@ for SID in station_IDs:
     stations_summary = stations_summary.append(row)
 
 
-
+stations_summary['poisson_rmse']/stations_summary['mean']
 
 
 future_predicted = poisson_training_results[22].get_prediction(X_future).summary_frame()['mean']
@@ -205,18 +205,59 @@ a
 
 
 pickle.dump( [df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test], open( "save.p", "wb" ) )
+#pickle.dump( [poisson_training_results], open( "poisson_model_results.p", "wb" ) )
+
 
 [df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )
 
 
 
+df_rain = pd.read_csv('./data/IDCJAC0009_086338_1800_Data.csv')
+df_rain.columns = ['product_code', 'station_number', 'year', 'month', 'day', 'rainfall_mm','days_measured', 'quality']
+df_rain['datetime']=pd.to_datetime(df_rain[['year','month', 'day']])
+df_rain = df_rain.set_index(pd.to_datetime(df_rain['datetime']))
+
+#
+df_temp_max = pd.read_csv('./data/IDCJAC0010_086338_1800_Data.csv')
+df_temp_max.columns = ['product_code', 'station_number', 'year', 'month', 'day', 'maximum_temperature_C',
+       'days_measured', 'quality']
+df_temp_max['datetime']=pd.to_datetime(df_temp_max[['year','month', 'day']])
+df_temp_max = df_temp_max.set_index(pd.to_datetime(df_temp_max['datetime']))
+
+#
+df_temp_min = pd.read_csv('./data/IDCJAC0011_086338_1800_Data.csv')
+df_temp_min.columns = ['product_code', 'station_Number', 'year', 'month', 'day', 'minimum_temperature_C',
+       'days_measured', 'quality']
+df_temp_min['datetime']=pd.to_datetime(df_temp_min[['year','month', 'day']])
+df_temp_min = df_temp_min.set_index(pd.to_datetime(df_temp_min['datetime']))
 
 
+#
+df_solar = pd.read_csv('./data/IDCJAC0016_086338_1800_Data.csv')
+df_solar.columns = ['product_code', 'station_Number', 'year', 'month', 'day', 'daily_solar_exposure_MJ']
+df_solar['datetime']=pd.to_datetime(df_solar[['year','month', 'day']])
+df_solar = df_solar.set_index(pd.to_datetime(df_solar['datetime']))
+
+df_solar[]
+
+
+#
+#
+# weather = .to_frame()
+# weather.columns = ['date_time']
+# weather = weather.set_index(pd.to_datetime(weather['date_time']))
+# weather = weather.drop('date_time', axis=1)
+
+
+weather = pd.concat([df_temp_min['minimum_temperature_C'],df_temp_max['maximum_temperature_C'],df_solar['daily_solar_exposure_MJ'], df_rain['rainfall_mm']], axis=1, join='inner')
+plt.plot(weather)
 
 
 
 a = plotting_nbr_results(poisson_training_results[22],nb2_training_results[22])
 
+weather.resample('1H').pad()
+df_temp_min['minimum_temperature_C'].resample('1H').bfill()
 
 
 
