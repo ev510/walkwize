@@ -1,58 +1,60 @@
-import streamlit as st
-import pydeck as pdk
-import pandas as pd
+import datetime as dt
+import matplotlib.pyplot as plt
 import networkx as nx
-import osmnx as ox
 import numpy as np
+import osmnx as ox
+import pandas as pd
+import pickle
+import psycopg2
+import pydeck as pdk
 import scipy
 import scipy.interpolate as interpolate
-import datetime
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+import streamlit as st
+import timeit
+
+from patsy import dmatrices
+from sqlalchemy import create_engine
+from sqlalchemy_utils import database_exists, create_database
+
+
+
+
+
 
 ## Credit to Dave Montiero of Doggo
 
-def get_node_df(location):
-	#Inputs: location as tuple of coords (lat, lon)
-	#Returns: 1-line dataframe to display an icon at that location on a map
 
-	#Location of Map Marker icon
-	icon_data = {
-		"url": "https://img.icons8.com/plasticine/100/000000/marker.png",
-		"width": 128,
-		"height":128,
-		"anchorY": 128}
+##### MODELING ####
+def expand_time_index(df):
+    ds = df.index.to_series()
+    df['month'] = ds.dt.month
+    df['day_of_week'] = ds.dt.dayofweek
+    #df_prepped['day']= ds.dt.day
+    #df_prepped['hour']=ds.dt.hour
+    df['sin_hour'] = np.sin(2*np.pi*ds.dt.hour/24)
+    df['cos_hour'] = np.cos(2*np.pi*ds.dt.hour/24)
+    return df
 
-	return pd.DataFrame({'lat':[location[0]], 'lon':[location[1]], 'icon_data': [icon_data]})
+def make_future():
+    # Creating the next 24 hours of AUSTRALIA time
+    now = dt.datetime.utcnow()
+    # Round to the next hour
+    now -= dt.timedelta(hours = -10-1, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
+    # Create next 24 hours
+    future = pd.date_range(now, now+dt.timedelta(hours=24),freq='h').to_frame()
+    # Prep for model input
+    future = expand_time_index(future)
+    future['hourly_counts']=0
+    expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
+    y_future, X_future = dmatrices(expr, future, return_type='dataframe')
+    return y_future, X_future
 
-def get_text_df(text, location):
-	#Inputs: text to display and location as tuple of coords (lat, lon)
-	#Returns: 1-line dataframe to display text at that location on a map
-	return pd.DataFrame({'lat':[location[0]], 'lon':[location[1]], 'text':text})
 
-def make_iconlayer(df):
-	# #Inputs: df with [lat, lon, icon_data]
-	# #Returns: pydeck IconLayer
-	# return pdk.Layer(
-	#     type='IconLayer',
-	#     data=df,
-	#     get_icon='icon_data',
-	#     get_size=4,
-	#     pickable=True,
-	#     size_scale=15,
-	#     get_position='[lon, lat]')
-	return
 
-def make_textlayer(df, color_array):
-	#Inputs: df with [lat, lon, text] and font color as str([R,G,B]) - yes '[R,G,B]'
-	#Returns: pydeck TextLayer
-	return pdk.Layer(
-	    type='TextLayer',
-	    data=df,
-	    get_text='text',
-	    get_size=4,
-	    pickable=True,
-	    size_scale=6,
-	    getColor = color_array,
-	    get_position='[lon, lat]')
+
+########
 
 def make_linelayer(df, color_array):
 	#Inputs: df with [startlat, startlon, destlat, destlon] and font color as str([R,G,B]) - yes '[R,G,B]'
@@ -252,7 +254,28 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 
 
 
-############################################################################
+#################### RUN THE WEB APP ####################################
+# While the user is getting set up, the webapp should run, and estimate for the next 24 hours.
+# Start with historic trends icon_layer
+# Then implement model based current trends (a different model?)
+
+#import model parameters
+[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )
+
+station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
+            22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
+            44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
+
+y_future, X_future = make_future()
+#y_future = y_future.to_frame()
+type(y_future)
+for SID in station_IDs:
+	y_future.insert(1,str(SID), poisson_training_results[SID].get_prediction(X_future).summary_frame()['mean'], True)
+
+y_future['23'].head()
+
+
+
 
 G, gdf_nodes, gdf_edges= get_map_data()
 ped_stations = get_ped_station_data()
@@ -268,8 +291,8 @@ date = st.sidebar.date_input('When you you want to leave?',  max_value=datetime.
 time = st.sidebar.time_input('What time do you want to leave?', value=None, key=None);
 
 gdf_edges['ped_rate'] = scipy.interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.ones_like(np.array(ped_current['total_of_directions'])),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
-# COLOR_BREWER_RED is not activated
-COLOR_BREWER_RED = [[255,247,236],[254,232,200],[253,212,158],[253,187,132],[252,141,89],[239,101,72],[215,48,31],[179,0,0],[127,0,0]]
+# COLOR_BREWER_RED is not activated, default color range is used
+COLOR_BREWER_RED = [[255,247,236],[127,0,0]]
 ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']],COLOR_BREWER_RED)
 
 
@@ -284,6 +307,31 @@ else:
 		source_to_dest(G, gdf_nodes, gdf_edges, input1, input2)
 
 
-slider = st.slider('How much do you want to avoid people?',0,100)
-timeframe = st.radio("Using what paradigm?",
-									('Pre-COVID', 'Current'))
+slider = st.slider('How much do you want to avoid people?',0,24)
+timeframe = st.radio("Using what paradigm?",('Pre-COVID', 'Current'))
+
+
+SID =4
+
+
+poisson_predictions = poisson_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
+nb2_predictions = nb2_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
+a = plt.figure(figsize=(16,7));
+axes = a.add_axes([.1, .1, .8, .8]);
+axes.plot(y_train[SID],'.',label='data_train');
+#axes.plot(pd.to_datetime(train_datetime),predictions,'.')
+axes.plot(y_test[SID],'.',label='data_test');
+axes.plot(poisson_predictions,'.',label='poisson');
+axes.plot(nb2_predictions,'.',label='nb2');
+axes.set_xlim(737014, 737021);
+axes.legend();
+a
+
+
+b = plt.figure();
+axes = b.add_axes([.1, .1, .8, .8]);
+axes.plot(y_future['23'],'.',label='future');
+axes.legend();
+b
+
+y_future['23'].head()
