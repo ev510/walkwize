@@ -11,6 +11,7 @@ dependencies:
 - pip
 - osmnx
 - rtree
+- statsmodels
 - psycopg2
 - pip:
   - streamlit
