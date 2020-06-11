@@ -1,5 +1,6 @@
 geopandas
 rtree==0.9
+statsmodels
 osmnx
 streamlit
 scipy
@@ -7,4 +8,3 @@ psycopg2
 pandas
 matplotlib
 numpy
-statsmodels
