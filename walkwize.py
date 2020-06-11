@@ -260,19 +260,19 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 # Then implement model based current trends (a different model?)
 
 #import model parameters
-[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )
-
-station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
-            22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
-            44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
-
-y_future, X_future = make_future()
-#y_future = y_future.to_frame()
-type(y_future)
-for SID in station_IDs:
-	y_future.insert(1,str(SID), poisson_training_results[SID].get_prediction(X_future).summary_frame()['mean'], True)
-
-y_future['23'].head()
+# #[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )
+#
+# station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
+#             22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
+#             44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
+#
+# y_future, X_future = make_future()
+# #y_future = y_future.to_frame()
+# type(y_future)
+# for SID in station_IDs:
+# 	y_future.insert(1,str(SID), poisson_training_results[SID].get_prediction(X_future).summary_frame()['mean'], True)
+#
+# y_future['23'].head()
 
 
 
