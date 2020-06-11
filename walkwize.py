@@ -97,6 +97,7 @@ def get_ped_station_data():
 
 	return ped_stations
 
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_ped_data_current():
 	ped_current = pd.read_json("https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
 	ped_current = ped_current.groupby('sensor_id')['total_of_directions'].sum().to_frame()
