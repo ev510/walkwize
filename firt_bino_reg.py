@@ -58,8 +58,20 @@ def expand_time_index(df):
     return df
 
 ################################################################################
-def single_station_negative_binomial_regression(station_ID):
+def weather_sql_query():
+    ##---------------- Query SQL database --------------------##
+    sql_query = """SELECT * FROM data_weather;"""
+    ## Query inactive station
+    df = pd.read_sql_query(sql_query,engine)
+    ## TODO: This SHOULD be handled in the SQL creation now, but needs to be confirmed
+    df['hourly_counts'] = df['hourly_counts'].replace(',','', regex=True).astype(float)
+    df = df.set_index(pd.to_datetime(df['date_time']))
+    return df_weather
 
+
+
+
+def single_station_negative_binomial_regression(station_ID, sf_weather):
     ##---------------- Query SQL database --------------------##
     sql_query = """SELECT * FROM data_ped_historic WHERE sensor_id = {0} AND year < 2020 AND year > 2016;""".format(str(station_ID))
     ## Query inactive station
@@ -167,13 +179,14 @@ y_test = {}
 X_train = {}
 X_test = {}
 
-#station_IDs= range(20,30)
-station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
-            22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
-            44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
+station_IDs= range(20,23)
+# #station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
+#             22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
+#             44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
 
+df_weather = weather_sql_query()
 for SID in station_IDs:
-    df_test[SID], df_train[SID], poisson_training_results[SID], nb2_training_results[SID],y_train[SID], y_test[SID], X_train[SID], X_test[SID] = single_station_negative_binomial_regression(SID)
+    df_test[SID], df_train[SID], poisson_training_results[SID], nb2_training_results[SID],y_train[SID], y_test[SID], X_train[SID], X_test[SID] = single_station_negative_binomial_regression(SID, df_weather)
 
 stations_summary = pd.DataFrame(columns=['min','max','mean','training_length','poisson_rmse','nb2_rmse'])
 for SID in station_IDs:
@@ -257,13 +270,11 @@ plt.plot(weather)
 a = plotting_nbr_results(poisson_training_results[22],nb2_training_results[22])
 
 weather.resample('1H').pad()
-df_temp_min['minimum_temperature_C'].resample('1H').bfill()
 
 
 
 
 np.random.RandomState(42)
-
 
     sql_query = """SELECT MIN() FROM data_ped_historic WHERE sensor_id = {0} AND year < 2020 AND year > 2016;""".format(str(station_ID))
 
