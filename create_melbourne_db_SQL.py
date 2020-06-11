@@ -22,7 +22,7 @@ ped_historic = pd.read_csv('./data/Pedestrian_Counting_System___2009_to_Present_
 ped_historic.columns=(['id', 'date_time', 'year', 'month', 'mdate', 'day', 'time', 'sensor_id',
        'sensor_name', 'hourly_counts'])
 ped_historic['hourly_counts'] = ped_historic['hourly_counts'].replace(',','', regex=True).astype(float)
-
+ped_historic
 
 # ATTENTION: THIS TAKES FOREVER (~5-10 min) TO RUN
 ped_historic.to_sql('data_ped_historic', engine, if_exists='replace')
@@ -68,8 +68,8 @@ def identify_useable_stations(ped_stations):
 
 index = identify_useable_stations(ped_stations)
 
+
+####
+
 ped_historic.groupby(by='sensor_id')['date_time'].agg(["min","max"])
-
-
-
-ped_stations
+ped_historic.groupby(by='sensor_id')['hourly_counts'].agg(["min","max","mean"])
