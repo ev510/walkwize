@@ -3,7 +3,6 @@ channels:
 - conda-forge
 dependencies:
 - python=3.7
-- psycopg2
 - conda
 - pandas
 - matplotlib
@@ -13,5 +12,6 @@ dependencies:
 - osmnx
 - rtree
 - statsmodels
+- psycopg2
 - pip:
   - streamlit

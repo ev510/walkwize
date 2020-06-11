@@ -31,10 +31,8 @@ def make_future():
     # Round to the next hour
     now -= dt.timedelta(hours = -11, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
     # Create next 24 hours
-    future_times = pd.date_range(now, now+dt.timedelta(hours=24),freq='h')
-    type(future_times)
-
-    future = make_future().to_frame()
+    future = pd.date_range(now, now+dt.timedelta(hours=24),freq='h').to_frame()
+    # Prep for model input
     future = expand_time_index(future)
     future['hourly_counts']=0
     expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
@@ -188,7 +186,7 @@ for SID in station_IDs:
     stations_summary = stations_summary.append(row)
 
 
-
+X_future = make_future()
 
 
 future_predicted = poisson_training_results[22].get_prediction(X_future).summary_frame()['mean']
@@ -224,7 +222,24 @@ a = plotting_nbr_results(poisson_training_results[22],nb2_training_results[22])
 np.random.RandomState(42)
 
 
-    sql_query = """SELECT MIN() FROM data_ped_historic WHERE sensor_id = {0} AND year < 2020 AND year > 2016;""".format(str(station_ID))
+sql_query = """SELECT MIN() FROM data_ped_historic WHERE sensor_id = {0} AND year < 2020 AND year > 2016;""".format(str(station_ID))
 
-    sql_query2 = """SELECT sensor_id, MIN(date_time), MAX(date_time) FROM data_ped_historic GROUP BY sensor_id"""
-    df = pd.read_sql_query(sql_query2,engine)
+sql_query2 = """SELECT sensor_id, MIN(date_time), MAX(date_time) FROM data_ped_historic GROUP BY sensor_id"""
+df = pd.read_sql_query(sql_query2,engine)
+
+[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )
+
+
+
+    poisson_predictions = poisson_training_results[26].get_prediction(X_test).summary_frame()['mean']
+    nb2_predictions = nb2_training_results.get_prediction(X_test).summary_frame()['mean']
+    a = plt.figure();
+    axes = a.add_axes([.1, .1, .8, .8]);
+    axes.plot(df_train['hourly_counts'],'.',label='data_train');
+    #axes.plot(pd.to_datetime(train_datetime),predictions,'.')
+    axes.plot(df_test['hourly_counts'],'.',label='data_test');
+    axes.plot(poisson_predictions,'.',label='poisson');
+    axes.plot(nb2_predictions,'.',label='nb2');
+    axes.set_xlim(737017, 737021);
+    axes.legend();
+    return a;
