@@ -310,28 +310,28 @@ else:
 slider = st.slider('How much do you want to avoid people?',0,24)
 timeframe = st.radio("Using what paradigm?",('Pre-COVID', 'Current'))
 
-
-SID =4
-
-
-poisson_predictions = poisson_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
-nb2_predictions = nb2_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
-a = plt.figure(figsize=(16,7));
-axes = a.add_axes([.1, .1, .8, .8]);
-axes.plot(y_train[SID],'.',label='data_train');
-#axes.plot(pd.to_datetime(train_datetime),predictions,'.')
-axes.plot(y_test[SID],'.',label='data_test');
-axes.plot(poisson_predictions,'.',label='poisson');
-axes.plot(nb2_predictions,'.',label='nb2');
-axes.set_xlim(737014, 737021);
-axes.legend();
-a
-
-
-b = plt.figure();
-axes = b.add_axes([.1, .1, .8, .8]);
-axes.plot(y_future['23'],'.',label='future');
-axes.legend();
-b
-
-y_future['23'].head()
+#
+# SID =4
+#
+#
+# poisson_predictions = poisson_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
+# nb2_predictions = nb2_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
+# a = plt.figure(figsize=(16,7));
+# axes = a.add_axes([.1, .1, .8, .8]);
+# axes.plot(y_train[SID],'.',label='data_train');
+# #axes.plot(pd.to_datetime(train_datetime),predictions,'.')
+# axes.plot(y_test[SID],'.',label='data_test');
+# axes.plot(poisson_predictions,'.',label='poisson');
+# axes.plot(nb2_predictions,'.',label='nb2');
+# axes.set_xlim(737014, 737021);
+# axes.legend();
+# a
+#
+#
+# b = plt.figure();
+# axes = b.add_axes([.1, .1, .8, .8]);
+# axes.plot(y_future['23'],'.',label='future');
+# axes.legend();
+# b
+#
+# y_future['23'].head()
