@@ -37,24 +37,43 @@ ped_stations = ped_stations.sort_index()
 ped_stations.to_sql('data_ped_stations', engine, if_exists='replace')
 ped_stations
 
+
 # LOAD HISTORIC WEATHER DATA
 df_rain = pd.read_csv('./data/IDCJAC0009_086338_1800_Data.csv')
 df_rain.columns = ['product_code', 'station_number', 'year', 'month', 'day', 'rainfall_mm','days_measured', 'quality']
-df_rain.to_sql('data_rain', engine, if_exists='replace')
+df_rain['datetime']=pd.to_datetime(df_rain[['year','month', 'day']])
+df_rain = df_rain.set_index(pd.to_datetime(df_rain['datetime']))
+#df_rain.to_sql('data_rain', engine, if_exists='replace')
 #
 df_temp_max = pd.read_csv('./data/IDCJAC0010_086338_1800_Data.csv')
 df_temp_max.columns = ['product_code', 'station_number', 'year', 'month', 'day', 'maximum_temperature_C',
        'days_measured', 'quality']
-df_temp_max.to_sql('data_max_temp', engine, if_exists='replace')
+df_temp_max['datetime']=pd.to_datetime(df_temp_max[['year','month', 'day']])
+df_temp_max = df_temp_max.set_index(pd.to_datetime(df_temp_max['datetime']))
+#df_temp_max.to_sql('data_max_temp', engine, if_exists='replace')
 #
 df_temp_min = pd.read_csv('./data/IDCJAC0011_086338_1800_Data.csv')
-df_temp_min.columns = ['product_code', 'station_Number', 'year', 'month', 'day', 'maximum_temperature_C',
+df_temp_min.columns = ['product_code', 'station_Number', 'year', 'month', 'day', 'minimum_temperature_C',
        'days_measured', 'quality']
-df_temp_min.to_sql('data_min_temp', engine, if_exists='replace')
+df_temp_min['datetime']=pd.to_datetime(df_temp_min[['year','month', 'day']])
+df_temp_min = df_temp_min.set_index(pd.to_datetime(df_temp_min['datetime']))
+#df_temp_min.to_sql('data_min_temp', engine, if_exists='replace')
 #
 df_solar = pd.read_csv('./data/IDCJAC0016_086338_1800_Data.csv')
-df_solar.columns = ['product_code', 'station_Number', 'year', 'month', 'day', 'daily_solar_exposure_MJ/mm']
-df_solar.to_sql('data_solar', engine, if_exists='replace')
+df_solar.columns = ['product_code', 'station_Number', 'year', 'month', 'day', 'daily_solar_exposure_MJ']
+df_solar['datetime']=pd.to_datetime(df_solar[['year','month', 'day']])
+df_solar = df_solar.set_index(pd.to_datetime(df_solar['datetime']))
+#df_solar.to_sql('data_solar', engine, if_exists='replace')
+
+
+
+df_weather = pd.concat([df_temp_min['minimum_temperature_C'],df_temp_max['maximum_temperature_C'],df_solar['daily_solar_exposure_MJ'], df_rain['rainfall_mm']], axis=1, join='inner')
+df_weather.to_sql('data_weather', engine, if_exists='replace')
+
+
+######
+
+
 
 
 
