@@ -25,6 +25,19 @@ from patsy import dmatrices
 
 ## Credit to Dave Montiero of Doggo
 
+def get_node_df(location):
+	#Inputs: location as tuple of coords (lat, lon)
+	#Returns: 1-line dataframe to display an icon at that location on a map
+
+	#Location of Map Marker icon
+	icon_data = {
+		"url": "https://img.icons8.com/plasticine/100/000000/marker.png",
+		"width": 128,
+		"height":128,
+		"anchorY": 128}
+
+	return pd.DataFrame({'lat':[location[0]], 'lon':[location[1]], 'icon_data': [icon_data]})
+
 
 ##### MODELING ####
 def expand_time_index(df):
@@ -287,8 +300,8 @@ st.sidebar.header("Let's plan your walk!");
 
 input1 = st.sidebar.text_input('Where will you start?');
 input2 = st.sidebar.text_input('Where are you going?');
-date = st.sidebar.date_input('When you you want to leave?',  max_value=dt.datetime(2020, 12, 31, 0, 0));
-time = st.sidebar.time_input('What time do you want to leave?', value=None, key=None);
+#date = st.sidebar.date_input('When you you want to leave?',  max_value=dt.datetime(2020, 12, 31, 0, 0));
+#time = st.sidebar.time_input('What time do you want to leave?', value=None, key=None);
 
 gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.ones_like(np.array(ped_current['total_of_directions'])),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
 # COLOR_BREWER_RED is not activated, default color range is used
@@ -307,7 +320,11 @@ else:
 		source_to_dest(G, gdf_nodes, gdf_edges, input1, input2)
 
 
-slider = st.slider('How much do you want to avoid people?',0,24)
+#slider = st.slider('How much do you want to avoid people?',0,24)
+
+
+slider = st.slider('How many hours from now do you want to leave?',0,24)
+
 timeframe = st.radio("Using what paradigm?",('Pre-COVID', 'Current'))
 
 #
