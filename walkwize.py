@@ -293,14 +293,8 @@ G, gdf_nodes, gdf_edges= get_map_data()
 ped_stations = get_ped_station_data()
 ped_current = get_ped_data_current()
 ped_predicted = get_ped_predicted()
-ped_stations.index.name
 ped_predicted.index.name = 'sensor_id'
-type(ped_stations.index)
-
-
-pd.concat([ped_predicted,ped_stations[['latitude','longitude']]],axis=1, join="inner")
-ped_predicted.concat(ped_stations[['latitude','longitude']])
-ped_predicted
+ped_predicted = pd.concat([ped_predicted,ped_stations[['latitude','longitude']]],axis=1, join="inner")
 
 st.sidebar.title("WalkWize");
 st.sidebar.markdown("*Take the path least traveled*");
@@ -313,7 +307,7 @@ input2 = st.sidebar.text_input('Where are you going?');
 
 # gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.ones_like(np.array(ped_current['total_of_directions'])),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
 
-gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.ones_like(np.array(ped_current['total_of_directions'])),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions'])),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
 
 # COLOR_BREWER_RED is not activated, default color range is used
 COLOR_BREWER_RED = [[255,247,236],[127,0,0]]
