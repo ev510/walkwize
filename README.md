@@ -36,4 +36,4 @@ Historic and real-time pedestrian data from the [City of Melbourne](http://www.p
 
 ### Acknowledgements
 
-- Thank you to David Montiero for sharing his webapp [DogGo](doggo.herokuapp.com) and [Git repository](https://github.com/davemonteiro/DogGo)
+- Thank you to David Montiero for sharing his webapp [DogGo](https://dm-doggo.herokuapp.com) and [Git repository](https://github.com/davemonteiro/DogGo)
