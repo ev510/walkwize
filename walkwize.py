@@ -335,35 +335,44 @@ else:
 		gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
 		source_to_dest(G, gdf_nodes, gdf_edges, input1, input2)
 
+poisson_predictions = poisson_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
+nb2_predictions = nb2_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
+
 
 #slider = st.slider('How much do you want to avoid people?',0,24)
-
-
-
 #timeframe = st.radio("Using what paradigm?",('Pre-COVID', 'Current'))
 
-#
-# SID =4
-#
-#
-# poisson_predictions = poisson_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
-# nb2_predictions = nb2_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
-# a = plt.figure(figsize=(16,7));
-# axes = a.add_axes([.1, .1, .8, .8]);
-# axes.plot(y_train[SID],'.',label='data_train');
-# #axes.plot(pd.to_datetime(train_datetime),predictions,'.')
-# axes.plot(y_test[SID],'.',label='data_test');
-# axes.plot(poisson_predictions,'.',label='poisson');
-# axes.plot(nb2_predictions,'.',label='nb2');
-# axes.set_xlim(737014, 737021);
-# axes.legend();
-# a
-#
-#
-# b = plt.figure();
-# axes = b.add_axes([.1, .1, .8, .8]);
-# axes.plot(y_future['23'],'.',label='future');
-# axes.legend();
-# b
-#
-# y_future['23'].head()
+
+###### Generating figures #######
+###### Not used in webapp #######
+SID =4
+
+# Sample time-series data. Consider highlighting zero-inflatedness.
+a = plt.figure(figsize=(4,4));
+axes = a.add_axes([.2, .2, .7, .7]);
+axes.plot(y_train[SID],'.',label='training data');
+#axes.plot(pd.to_datetime(train_datetime),predictions,'.')
+axes.plot(y_test[SID],'.',label='testing data');
+axes.plot(poisson_predictions,'.',label='poisson prediction');
+#axes.plot(nb2_predictions,'.',label='nb2');
+axes.set_xlim(737014, 737018);
+axes.legend(fancybox = True, framealpha=0);
+myFmt = mdates.DateFormatter('%Y-%m-%d')
+axes.xaxis.set_major_formatter(myFmt)
+axes.xaxis.set_major_locator(mdates.DayLocator(interval=1))   #to get a tick every 15 minutes
+a.autofmt_xdate()
+a.savefig('train.png',transparent =True, dpi=600)
+a
+
+
+# Sample prediction data.
+b = plt.figure(figsize=(4,4));
+axes = b.add_axes([.2, .2, .7, .7]);
+axes.plot(ped_predicted2.transpose()[2], label='forecast')	;
+import matplotlib.dates as mdates
+myFmt = mdates.DateFormatter('%H:00')
+axes.xaxis.set_major_formatter(myFmt)
+axes.legend(fancybox = True, framealpha=0);
+b.autofmt_xdate()
+b.savefig('predict.png', transparent = True,dpi=600)
+b
