@@ -62,10 +62,10 @@ def weather_sql_query():
     ##---------------- Query SQL database --------------------##
     sql_query = """SELECT * FROM data_weather;"""
     ## Query inactive station
-    df = pd.read_sql_query(sql_query,engine)
+    df_weather = pd.read_sql_query(sql_query,engine)
     ## TODO: This SHOULD be handled in the SQL creation now, but needs to be confirmed
-    df['hourly_counts'] = df['hourly_counts'].replace(',','', regex=True).astype(float)
-    df = df.set_index(pd.to_datetime(df['date_time']))
+    df_weather = df_weather.set_index(df_weather['datetime'])
+
     return df_weather
 
 
@@ -73,12 +73,15 @@ def weather_sql_query():
 
 def single_station_negative_binomial_regression(station_ID, sf_weather):
     ##---------------- Query SQL database --------------------##
-    sql_query = """SELECT * FROM data_ped_historic WHERE sensor_id = {0} AND year < 2020 AND year > 2016;""".format(str(station_ID))
+    sql_query = """SELECT * FROM data_ped_historic WHERE sensor_id = {0} AND year < 2020 AND year > 2013;""".format(str(station_ID))
     ## Query inactive station
     df = pd.read_sql_query(sql_query,engine)
     ## TODO: This SHOULD be handled in the SQL creation now, but needs to be confirmed
     df['hourly_counts'] = df['hourly_counts'].replace(',','', regex=True).astype(float)
     df = df.set_index(pd.to_datetime(df['date_time']))
+
+
+    df = pd.concat([df,df_weather],axis=1,join='inner').sort_index()
 
 
     ##---------------- Select features --------------------##
@@ -95,8 +98,15 @@ def single_station_negative_binomial_regression(station_ID, sf_weather):
     #df_prepped['cos_day'] = np.cos(2*np.pi*ds.dt.dayofweek/7)
     #df_prepped['is_weekday'] = ((ds.dt.dayofweek) // 5 == 0).astype(float)
     df_prepped['hourly_counts']=df['hourly_counts']
+    df_prepped['minimum_temperature_C']=df['minimum_temperature_C']
+    df_prepped['maximum_temperature_C']=df['maximum_temperature_C']
+    df_prepped['daily_solar_exposure_MJ']=df['daily_solar_exposure_MJ']
+    df_prepped['rainfall_mm']=df['rainfall_mm']
+    df_prepped = df_prepped.dropna()
+
     ## features for model:
-    expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
+    expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour + minimum_temperature_C + maximum_temperature_C + daily_solar_exposure_MJ + rainfall_mm"
+    #expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
 
 
 
@@ -112,6 +122,10 @@ def single_station_negative_binomial_regression(station_ID, sf_weather):
 
     ##---------------- Build model --------------------##
     poisson_training_results = sm.GLM(y_train, X_train, family=sm.families.Poisson()).fit()
+
+    #len(poisson_training_results.mu)
+    #len(df_train)
+
 
     df_train.loc[:,'hourly_lambda']=poisson_training_results.mu.copy();
     df_train.loc[:,'AUX_OLS_DEP']=df_train.apply(lambda x: ((x['hourly_counts'] - x['hourly_lambda'])**2 - x['hourly_counts']) / x['hourly_lambda'], axis=1);
@@ -180,13 +194,15 @@ X_train = {}
 X_test = {}
 
 station_IDs= range(20,23)
-# #station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
-#             22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
-#             44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
+station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
+             22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
+             44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
 
 df_weather = weather_sql_query()
 for SID in station_IDs:
-    df_test[SID], df_train[SID], poisson_training_results[SID], nb2_training_results[SID],y_train[SID], y_test[SID], X_train[SID], X_test[SID] = single_station_negative_binomial_regression(SID, df_weather)
+    df_test[SID], df_train[SID], poisson_training_results[SID], nb2_training_results[SID],y_train[SID], y_test[SID], X_train[SID], X_test[SID] =single_station_negative_binomial_regression(SID, df_weather)
+
+
 
 stations_summary = pd.DataFrame(columns=['min','max','mean','training_length','poisson_rmse','nb2_rmse'])
 for SID in station_IDs:
@@ -199,6 +215,11 @@ for SID in station_IDs:
                         },
                         name=SID)
     stations_summary = stations_summary.append(row)
+
+stations_summary
+stations_summary['poisson_rmse'].mean()
+# 333 with weather data
+# 343 no weather
 
 
 stations_summary['poisson_rmse']/stations_summary['mean']
@@ -280,3 +301,4 @@ np.random.RandomState(42)
 
     sql_query2 = """SELECT sensor_id, MIN(date_time), MAX(date_time) FROM data_ped_historic GROUP BY sensor_id"""
     df = pd.read_sql_query(sql_query2,engine)
+    df.loc[21]
