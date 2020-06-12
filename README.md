@@ -1,11 +1,9 @@
 # WalkWize
-WalkWize - Taking the path least traveled
+WalkWize: Take the path least traveled
 
-
-Online: walkwize.herokuapp.com
+Online: https://walkwize.herokuapp.com/
 
 WalkWize is an application that will suggests pedestrian walking routes to avoid forecasted congestion in Melbourne, Australia.
-
 
 Historic and real-time pedestrian data from the City of Melboure: http://www.pedestrian.melbourne.vic.gov.au/
 
