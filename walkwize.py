@@ -307,7 +307,8 @@ input2 = st.sidebar.text_input('Where are you going?');
 
 # gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.ones_like(np.array(ped_current['total_of_directions'])),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
 
-gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions'])),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
 
 # COLOR_BREWER_RED is not activated, default color range is used
 COLOR_BREWER_RED = [[255,247,236],[127,0,0]]
