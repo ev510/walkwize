@@ -246,7 +246,6 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 		[215,48,31],[179,0,0],[127,0,0]]
 
 	start_node_df = get_node_df(start_location)
-	icon_layer = make_iconlayer(start_node_df)
 	optimized_layer = make_linelayer(opt_df, '[0,0,179]')
 	#ped_layer = make_pedlayer(ped_current,COLOR_BREWER_RED)
 	ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']],COLOR_BREWER_RED)
@@ -262,7 +261,7 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 		layers=[short_layer, optimized_layer, ped_layer]))
 
 
-	st.write('The shortest past is shown in grey. The blue path will avoid people.')
+	st.write('The path of shortest distance is shown in grey. The path of least contact is shown in blue.')
 	return
 
 
@@ -273,22 +272,18 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 # Then implement model based current trends (a different model?)
 
 #import model parameters
-# #[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )
-#
-# station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
-#             22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
-#             44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
-#
-# y_future, X_future = make_future()
-# #y_future = y_future.to_frame()
-# type(y_future)
-# for SID in station_IDs:
-# 	y_future.insert(1,str(SID), poisson_training_results[SID].get_prediction(X_future).summary_frame()['mean'], True)
-#
-# y_future['23'].head()
+[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )#
+station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
+            22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
+            44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
 
+y_future, X_future = make_future()
+ #y_future = y_future.to_frame()
+ type(y_future)
+for SID in station_IDs:
+ 	y_future.insert(1,str(SID), poisson_training_results[SID].get_prediction(X_future).summary_frame()['mean'], True)
 
-
+y_future
 
 G, gdf_nodes, gdf_edges= get_map_data()
 ped_stations = get_ped_station_data()
@@ -323,9 +318,9 @@ else:
 #slider = st.slider('How much do you want to avoid people?',0,24)
 
 
-slider = st.slider('How many hours from now do you want to leave?',0,24)
+slider = st.slider('Conditions in __ hours?',0,24)
 
-timeframe = st.radio("Using what paradigm?",('Pre-COVID', 'Current'))
+#timeframe = st.radio("Using what paradigm?",('Pre-COVID', 'Current'))
 
 #
 # SID =4

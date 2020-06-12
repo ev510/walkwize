@@ -14,5 +14,6 @@ dependencies:
 - rtree
 - statsmodels
 - fbprophet
+- plotly
 - pip:
   - streamlit
