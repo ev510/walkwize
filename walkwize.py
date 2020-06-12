@@ -25,6 +25,19 @@ from patsy import dmatrices
 
 ## Credit to Dave Montiero of Doggo
 
+def get_node_df(location):
+	#Inputs: location as tuple of coords (lat, lon)
+	#Returns: 1-line dataframe to display an icon at that location on a map
+
+	#Location of Map Marker icon
+	icon_data = {
+		"url": "https://img.icons8.com/plasticine/100/000000/marker.png",
+		"width": 128,
+		"height":128,
+		"anchorY": 128}
+
+	return pd.DataFrame({'lat':[location[0]], 'lon':[location[1]], 'icon_data': [icon_data]})
+
 
 ##### MODELING ####
 def expand_time_index(df):
@@ -51,7 +64,22 @@ def make_future():
     y_future, X_future = dmatrices(expr, future, return_type='dataframe')
     return y_future, X_future
 
+def get_ped_predicted():
+	[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )#
+	station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
+	            22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
+	            44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
 
+	y_future, X_future = make_future()
+
+	for SID in station_IDs:
+	 	y_future.insert(1,SID, poisson_training_results[SID].get_prediction(X_future).summary_frame()['mean'], True)
+
+	y_future= y_future.drop('hourly_counts',axis=1)
+	ped_predicted = y_future.transpose()
+	type(ped_predicted.index)
+	return ped_predicted
+	#ped_predicted.index.is_numeric()
 
 
 ########
@@ -102,6 +130,7 @@ def get_ped_data_current():
 	ped_current = pd.read_json("https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
 	ped_current = ped_current.groupby('sensor_id')['total_of_directions'].sum().to_frame()
 	ped_current = ped_current.join(ped_stations[['latitude','longitude']])
+
 
 	return ped_current
 
@@ -234,7 +263,6 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 		[215,48,31],[179,0,0],[127,0,0]]
 
 	start_node_df = get_node_df(start_location)
-	icon_layer = make_iconlayer(start_node_df)
 	optimized_layer = make_linelayer(opt_df, '[0,0,179]')
 	#ped_layer = make_pedlayer(ped_current,COLOR_BREWER_RED)
 	ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']],COLOR_BREWER_RED)
@@ -250,7 +278,7 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 		layers=[short_layer, optimized_layer, ped_layer]))
 
 
-	st.write('The shortest past is shown in grey. The blue path will avoid people.')
+	st.write('The path of shortest distance is shown in grey. The path of least contact is shown in blue.')
 	return
 
 
@@ -261,26 +289,13 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 # Then implement model based current trends (a different model?)
 
 #import model parameters
-# #[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )
-#
-# station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
-#             22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
-#             44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
-#
-# y_future, X_future = make_future()
-# #y_future = y_future.to_frame()
-# type(y_future)
-# for SID in station_IDs:
-# 	y_future.insert(1,str(SID), poisson_training_results[SID].get_prediction(X_future).summary_frame()['mean'], True)
-#
-# y_future['23'].head()
-
-
-
 
 G, gdf_nodes, gdf_edges= get_map_data()
 ped_stations = get_ped_station_data()
 ped_current = get_ped_data_current()
+ped_predicted = get_ped_predicted()
+ped_predicted.index.name = 'sensor_id'
+ped_predicted = pd.concat([ped_predicted,ped_stations[['latitude','longitude']]],axis=1, join="inner")
 
 st.sidebar.title("WalkWize");
 st.sidebar.markdown("*Take the path least traveled*");
@@ -288,10 +303,16 @@ st.sidebar.header("Let's plan your walk!");
 
 input1 = st.sidebar.text_input('Where will you start?');
 input2 = st.sidebar.text_input('Where are you going?');
-date = st.sidebar.date_input('When you you want to leave?',  max_value=dt.datetime(2020, 12, 31, 0, 0));
-time = st.sidebar.time_input('What time do you want to leave?', value=None, key=None);
+slider = st.sidebar.slider('Conditions in __ hours?',0,24)
 
-gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.ones_like(np.array(ped_current['total_of_directions'])),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+#date = st.sidebar.date_input('When you you want to leave?',  max_value=dt.datetime(2020, 12, 31, 0, 0));
+#time = st.sidebar.time_input('What time do you want to leave?', value=None, key=None);
+
+gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+
+
+
+
 # COLOR_BREWER_RED is not activated, default color range is used
 COLOR_BREWER_RED = [[255,247,236],[127,0,0]]
 ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']],COLOR_BREWER_RED)
@@ -305,34 +326,54 @@ if not submit:
 		layers=[ped_layer]))
 else:
 	with st.spinner('Routing...'):
+		if slider == 0:
+			gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+
+		else:
+			gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_predicted['latitude'], ped_predicted['longitude']))),np.array(ped_predicted[ped_predicted.columns[slider]]),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+
+		st.markdown(ped_predicted.columns[slider])
+		gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
 		source_to_dest(G, gdf_nodes, gdf_edges, input1, input2)
 
+poisson_predictions = poisson_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
+nb2_predictions = nb2_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
 
-slider = st.slider('How much do you want to avoid people?',0,24)
-timeframe = st.radio("Using what paradigm?",('Pre-COVID', 'Current'))
 
-#
-# SID =4
-#
-#
-# poisson_predictions = poisson_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
-# nb2_predictions = nb2_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
-# a = plt.figure(figsize=(16,7));
-# axes = a.add_axes([.1, .1, .8, .8]);
-# axes.plot(y_train[SID],'.',label='data_train');
-# #axes.plot(pd.to_datetime(train_datetime),predictions,'.')
-# axes.plot(y_test[SID],'.',label='data_test');
-# axes.plot(poisson_predictions,'.',label='poisson');
-# axes.plot(nb2_predictions,'.',label='nb2');
-# axes.set_xlim(737014, 737021);
-# axes.legend();
-# a
-#
-#
-# b = plt.figure();
-# axes = b.add_axes([.1, .1, .8, .8]);
-# axes.plot(y_future['23'],'.',label='future');
-# axes.legend();
-# b
-#
-# y_future['23'].head()
+#slider = st.slider('How much do you want to avoid people?',0,24)
+#timeframe = st.radio("Using what paradigm?",('Pre-COVID', 'Current'))
+
+
+###### Generating figures #######
+###### Not used in webapp #######
+SID =4
+
+# Sample time-series data. Consider highlighting zero-inflatedness.
+a = plt.figure(figsize=(4,4));
+axes = a.add_axes([.2, .2, .7, .7]);
+axes.plot(y_train[SID],'.',label='training data');
+#axes.plot(pd.to_datetime(train_datetime),predictions,'.')
+axes.plot(y_test[SID],'.',label='testing data');
+axes.plot(poisson_predictions,'.',label='poisson prediction');
+#axes.plot(nb2_predictions,'.',label='nb2');
+axes.set_xlim(737014, 737018);
+axes.legend(fancybox = True, framealpha=0);
+myFmt = mdates.DateFormatter('%Y-%m-%d')
+axes.xaxis.set_major_formatter(myFmt)
+axes.xaxis.set_major_locator(mdates.DayLocator(interval=1))   #to get a tick every 15 minutes
+a.autofmt_xdate()
+a.savefig('train.png',transparent =True, dpi=600)
+a
+
+
+# Sample prediction data.
+b = plt.figure(figsize=(4,4));
+axes = b.add_axes([.2, .2, .7, .7]);
+axes.plot(ped_predicted2.transpose()[2], label='forecast')	;
+import matplotlib.dates as mdates
+myFmt = mdates.DateFormatter('%H:00')
+axes.xaxis.set_major_formatter(myFmt)
+axes.legend(fancybox = True, framealpha=0);
+b.autofmt_xdate()
+b.savefig('predict.png', transparent = True,dpi=600)
+b
