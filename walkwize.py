@@ -302,13 +302,15 @@ st.sidebar.header("Let's plan your walk!");
 
 input1 = st.sidebar.text_input('Where will you start?');
 input2 = st.sidebar.text_input('Where are you going?');
+slider = st.sidebar.slider('Conditions in __ hours?',0,24)
+
 #date = st.sidebar.date_input('When you you want to leave?',  max_value=dt.datetime(2020, 12, 31, 0, 0));
 #time = st.sidebar.time_input('What time do you want to leave?', value=None, key=None);
 
-# gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.ones_like(np.array(ped_current['total_of_directions'])),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
-
 gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
-gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
+
+
+
 
 # COLOR_BREWER_RED is not activated, default color range is used
 COLOR_BREWER_RED = [[255,247,236],[127,0,0]]
@@ -323,13 +325,20 @@ if not submit:
 		layers=[ped_layer]))
 else:
 	with st.spinner('Routing...'):
+		if slider == 0:
+			gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+
+		else:
+			gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_predicted['latitude'], ped_predicted['longitude']))),np.array(ped_predicted[ped_predicted.columns[slider]]),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+
+		st.markdown(ped_predicted.columns[slider])
+		gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
 		source_to_dest(G, gdf_nodes, gdf_edges, input1, input2)
 
 
 #slider = st.slider('How much do you want to avoid people?',0,24)
 
 
-slider = st.slider('Conditions in __ hours?',0,24)
 
 #timeframe = st.radio("Using what paradigm?",('Pre-COVID', 'Current'))
 
