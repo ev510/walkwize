@@ -77,9 +77,3 @@ def identify_useable_stations(ped_stations):
 index = identify_useable_stations(ped_stations)
 
 ped_historic.groupby(by='sensor_id')['date_time'].agg(["min","max"])
-
-
-
-
-
-###### EDA #######
