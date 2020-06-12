@@ -64,10 +64,11 @@ def make_future():
     y_future, X_future = dmatrices(expr, future, return_type='dataframe')
     return y_future, X_future
 
-def get_ped_predicted():
+
+
+def get_ped_predicted(model_training_results):
 	#[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "poisson.p", "rb" ) )#
 
-	[poisson_training_results] = pickle.load( open( "poisson.p", "rb" ) )
 	station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
 	            22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
 	            44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
@@ -75,7 +76,8 @@ def get_ped_predicted():
 	y_future, X_future = make_future()
 
 	for SID in station_IDs:
-	 	y_future.insert(1,SID, poisson_training_results[SID].get_prediction(X_future).summary_frame()['mean'], True)
+	 	y_future.insert(1,SID, model_training_results[SID].get_prediction(X_future).summary_frame()['mean'], True)
+
 
 	y_future= y_future.drop('hourly_counts',axis=1)
 	ped_predicted = y_future.transpose()
@@ -291,11 +293,12 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 # Then implement model based current trends (a different model?)
 
 #import model parameters
+poisson_training_results, junk = pickle.load( open( "poisson.p", "rb" ) )
 
 G, gdf_nodes, gdf_edges= get_map_data()
 ped_stations = get_ped_station_data()
 ped_current = get_ped_data_current()
-ped_predicted = get_ped_predicted()
+ped_predicted = get_ped_predicted(poisson_training_results)
 ped_predicted.index.name = 'sensor_id'
 ped_predicted = pd.concat([ped_predicted,ped_stations[['latitude','longitude']]],axis=1, join="inner")
 
@@ -338,9 +341,6 @@ else:
 		gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
 		source_to_dest(G, gdf_nodes, gdf_edges, input1, input2)
 
-poisson_predictions = poisson_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
-nb2_predictions = nb2_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
-
 
 #slider = st.slider('How much do you want to avoid people?',0,24)
 #timeframe = st.radio("Using what paradigm?",('Pre-COVID', 'Current'))
@@ -348,34 +348,40 @@ nb2_predictions = nb2_training_results[SID].get_prediction(X_test[SID]).summary_
 
 ###### Generating figures #######
 ###### Not used in webapp #######
-SID =4
 
-# Sample time-series data. Consider highlighting zero-inflatedness.
-a = plt.figure(figsize=(4,4));
-axes = a.add_axes([.2, .2, .7, .7]);
-axes.plot(y_train[SID],'.',label='training data');
-#axes.plot(pd.to_datetime(train_datetime),predictions,'.')
-axes.plot(y_test[SID],'.',label='testing data');
-axes.plot(poisson_predictions,'.',label='poisson prediction');
-#axes.plot(nb2_predictions,'.',label='nb2');
-axes.set_xlim(737014, 737018);
-axes.legend(fancybox = True, framealpha=0);
-myFmt = mdates.DateFormatter('%Y-%m-%d')
-axes.xaxis.set_major_formatter(myFmt)
-axes.xaxis.set_major_locator(mdates.DayLocator(interval=1))   #to get a tick every 15 minutes
-a.autofmt_xdate()
-a.savefig('train.png',transparent =True, dpi=600)
-a
-
-
-# Sample prediction data.
-b = plt.figure(figsize=(4,4));
-axes = b.add_axes([.2, .2, .7, .7]);
-axes.plot(ped_predicted2.transpose()[2], label='forecast')	;
-import matplotlib.dates as mdates
-myFmt = mdates.DateFormatter('%H:00')
-axes.xaxis.set_major_formatter(myFmt)
-axes.legend(fancybox = True, framealpha=0);
-b.autofmt_xdate()
-b.savefig('predict.png', transparent = True,dpi=600)
-b
+# poisson_predictions = poisson_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
+# nb2_predictions = nb2_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
+#
+#
+#
+# SID =4
+#
+# # Sample time-series data. Consider highlighting zero-inflatedness.
+# a = plt.figure(figsize=(4,4));
+# axes = a.add_axes([.2, .2, .7, .7]);
+# axes.plot(y_train[SID],'.',label='training data');
+# #axes.plot(pd.to_datetime(train_datetime),predictions,'.')
+# axes.plot(y_test[SID],'.',label='testing data');
+# axes.plot(poisson_predictions,'.',label='poisson prediction');
+# #axes.plot(nb2_predictions,'.',label='nb2');
+# axes.set_xlim(737014, 737018);
+# axes.legend(fancybox = True, framealpha=0);
+# myFmt = mdates.DateFormatter('%Y-%m-%d')
+# axes.xaxis.set_major_formatter(myFmt)
+# axes.xaxis.set_major_locator(mdates.DayLocator(interval=1))   #to get a tick every 15 minutes
+# a.autofmt_xdate()
+# a.savefig('train.png',transparent =True, dpi=600)
+# a
+#
+#
+# # Sample prediction data.
+# b = plt.figure(figsize=(4,4));
+# axes = b.add_axes([.2, .2, .7, .7]);
+# axes.plot(ped_predicted2.transpose()[2], label='forecast')	;
+# import matplotlib.dates as mdates
+# myFmt = mdates.DateFormatter('%H:00')
+# axes.xaxis.set_major_formatter(myFmt)
+# axes.legend(fancybox = True, framealpha=0);
+# b.autofmt_xdate()
+# b.savefig('predict.png', transparent = True,dpi=600)
+# b
