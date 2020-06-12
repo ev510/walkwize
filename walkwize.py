@@ -65,7 +65,9 @@ def make_future():
     return y_future, X_future
 
 def get_ped_predicted():
-	[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )#
+	#[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "poisson.p", "rb" ) )#
+
+	[poisson_training_results] = pickle.load( open( "poisson.p", "rb" ) )#
 	station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
 	            22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
 	            44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
