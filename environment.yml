@@ -13,5 +13,6 @@ dependencies:
 - osmnx
 - rtree
 - statsmodels
+- fbprophet
 - pip:
   - streamlit
