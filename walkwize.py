@@ -13,7 +13,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import streamlit as st
 import timeit
-
+import s3fs
 import boto3
 
 from patsy import dmatrices
@@ -140,8 +140,15 @@ def get_ped_data_current():
 
 	return ped_current
 
-def get_ped_historic_data():
-	pass
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+def get_model_results_data():
+	bucket='walkwize'
+	data_key = 'poisson.p'
+	data_location = 's3://{}/{}'.format(bucket, data_key)
+	#poisson_training_results = pd.read_pickle(data_location)
+	return pd.read_pickle(data_location)
+
+
 
 def get_map_bounds(gdf_nodes, route1, route2):
 	#Inputs: node df, and two lists of nodes along path
@@ -283,37 +290,46 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 		initial_view_state=pdk.ViewState(latitude = -37.81375, longitude = 144.9669, zoom=13.5),
 		layers=[short_layer, optimized_layer, ped_layer]))
 
-
 	st.write('The path of shortest distance is shown in grey. The path of least contact is shown in blue.')
 	return
 
-def get_pickle_S3(key):
-	s3_resource = boto3.client('s3')
-	bucket='walkwize'
-	    # key='poisson.p', obj=[poisson_training_results]
-	    key='poisson.p'
-
-	    #pickle_byte_obj = pickle.dumps([poisson_training_results])
-	    #s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
-
-	response = s3_resource.get_object(Bucket=bucket, Key=key)
-	body = response['Body'].read()
-	df = pd.read_pickle(body)
-
-	#data = pickle.loads(body)
-	#data
-
-	import smart_open
-
-	with open(file_name, 'rb') as f:
-   	df = pd.read_pickle(response)
-	type(data)
-	return data
+#
+# 	key = 'poisson.p'
+# def get_pickle_S3(key):
+# 	s3_resource = boto3.client('s3')
+# 	bucket='walkwize'
+# 	# key='poisson.p', obj=[poisson_training_results]
+#
+# 	#pickle_byte_obj = pickle.dumps([poisson_training_results])
+# 	#s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
+#
+# 	response = s3_resource.get_object(Bucket=bucket, Key=key)
+# 	body = response['Body'].read()
+# 	pickle.load()
+# 	type(body)
+#
+#
+# import pickle
+# import boto3
+# from io import BytesIO
 
 
 
-s3 = boto3.client('s3')
-buckets = s3.list_buckets()
+
+
+
+	# body)
+	#
+	# with open(file_name, 'rb') as f:
+	# 	df = pd.read_pickle(f)
+	# type(body)
+	# df = pd.read_pickle(body)
+	#
+	# pickle.load('poisson_training_results.p')
+	# return df
+
+
+
 
 #################### RUN THE WEB APP ####################################
 # While the user is getting set up, the webapp should run, and estimate for the next 24 hours.
@@ -321,10 +337,10 @@ buckets = s3.list_buckets()
 # Then implement model based current trends (a different model?)
 
 #import model parameters
-get_pickle_S3('poisson.p')
+poisson_training_results = get_model_results_data()
 
 
-poisson_training_results, junk = pickle.load( open( "poisson.p", "rb" ) )
+
 
 G, gdf_nodes, gdf_edges= get_map_data()
 ped_stations = get_ped_station_data()
