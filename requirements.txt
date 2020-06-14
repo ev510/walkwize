@@ -9,3 +9,4 @@ pandas
 matplotlib
 numpy
 fbprophet
+boto3
