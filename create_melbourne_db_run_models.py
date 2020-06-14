@@ -4,6 +4,27 @@ import psycopg2
 import pandas as pd
 import datetime as dt
 
+
+
+import boto3
+
+
+
+from patsy import dmatrices
+import numpy as np
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+import statsmodels.formula.api as smf
+
+import datetime as dt
+import pickle
+
+
+
+
+
+
+
 dbname = 'melbourne_db'
 username = 'emilyvoytek'
 pswd = 'founded1835'
@@ -18,13 +39,13 @@ engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname))
 
 #len(stations)
 #stations.head()
-ped_historic = pd.read_csv('./data/Pedestrian_Counting_System___2009_to_Present__counts_per_hour_.csv')
+ped_historic = pd.read_csv('./data/Pedestrian_Counting_System___2009_to_Present__counts_per_hour_June04.csv')
 ped_historic.columns=(['id', 'date_time', 'year', 'month', 'mdate', 'day', 'time', 'sensor_id','sensor_name', 'hourly_counts'])
 ped_historic['hourly_counts'] = ped_historic['hourly_counts'].replace(',','', regex=True).astype(float)
 
 
 # ATTENTION: THIS TAKES FOREVER (~5-10 min) TO RUN
-ped_historic.to_sql('data_ped_historic', engine, if_exists='replace')
+# ped_historic.to_sql('data_ped_historic', engine, if_exists='replace')
 
 
 
@@ -88,22 +109,6 @@ ped_historic.groupby(by='sensor_id')['date_time'].agg(["min","max"])
 
 
 
-
-import boto3
-
-from sqlalchemy import create_engine
-from sqlalchemy_utils import database_exists, create_database
-import psycopg2
-
-import pandas as pd
-from patsy import dmatrices
-import numpy as np
-import statsmodels.api as sm
-import matplotlib.pyplot as plt
-import statsmodels.formula.api as smf
-
-import datetime as dt
-import pickle
 
 ################################################################################
 def set_up_database():
@@ -174,7 +179,8 @@ def single_station_negative_binomial_regression(station_ID, sf_weather):
 
     df = pd.concat([df,df_weather],axis=1,join='inner').sort_index()
     df['earlier']=df.index-dt.timedelta(hours=1)
-    df = df.drop(['date_time', 'datetime','index','id'], axis=1)
+
+    df = df.drop(['date_time','index','id'], axis=1)
     df['earlier_hourly_counts']=df['hourly_counts'].shift(periods=1, fill_value=0)
 
 
@@ -272,9 +278,9 @@ def pickle_to_S3(key, obj):
     # key='poisson.p', obj=[poisson_training_results]
     s3_resource = boto3.resource('s3')
     bucket='walkwize'
-    pickle_byte_obj = pickle.dumps([[key]])
+    pickle_byte_obj = pickle.dumps([obj])
     s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
-    pass
+
 
 
 
@@ -320,14 +326,31 @@ for SID in station_IDs:
 
 
 
-df_weather
+
 
 poisson_training_results
-pickle_to_S3('test.p',)
+
+pickle_to_S3('poisson.p',poisson_training_results)
+
+    # key='poisson.p', obj=[poisson_training_results]
+s3_resource = boto3.resource('s3')
+bucket='walkwize'
+key='poisson.p'
+pickle_byte_obj = pickle.dumps(poisson_training_results)
+s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
+type(pickle_byte_obj)
+
+import s3fs
+bucket='walkwize'
+data_key = 'poisson.p'
+data_location = 's3://{}/{}'.format(bucket, data_key)
+pd.read_pickle(data_location)
 
 
 
-pickle.dump( [poisson_training_results, df_test], open( "poisson.p", "wb" ) )
+
+
+pickle.dump( [df_test, df_train, poisson_training_results, nb2_training_results,y_train, y_test, X_train, X_test], open( "poisson2.p", "wb" ) )
 poisson_training_results[1].conf_int()
 X_train[1]
 
