@@ -1,4 +1,6 @@
 
+import boto3
+
 from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
 import psycopg2
@@ -28,7 +30,7 @@ def set_up_database():
 def make_future():
     # Creating the next 24 hours of AUSTRALIA time
     now = dt.datetime.utcnow()
-    # Round to the next hour
+    # Round to the next hour (-1), shift to Australia time (-10)
     now -= dt.timedelta(hours = -11, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
     # Create next 24 hours
     future_times = pd.date_range(now, now+dt.timedelta(hours=24),freq='h')
@@ -68,7 +70,7 @@ def weather_sql_query():
 
     return df_weather
 
-    #station_ID = 20;
+    station_ID = 20;
 
 def single_station_negative_binomial_regression(station_ID, sf_weather):
     ##---------------- Query SQL database --------------------##
@@ -86,10 +88,23 @@ def single_station_negative_binomial_regression(station_ID, sf_weather):
     df['earlier_hourly_counts']=df['hourly_counts'].shift(periods=1, fill_value=0)
 
 
-    # Drop first time step, no historic data
-
-
-
+    #
+    # compare = df.groupby(['month', 'day','time'])['hourly_counts'].agg(['mean'])
+    # compare
+    # #compare.loc(compare['month']=='April')
+    #
+    #
+    # df_gb = df.groupby(['Factor1','Factor2'])['Values'].aggregate([np.mean, np.std])
+    # df_sum = df_gb.groupby(['Factor1','Factor2']).aggregate(np.sum)
+    # df_sum.to_dict()
+    # type(compare)
+    # compare.items()
+    #
+    #
+    # # Drop first time step, no historic data
+    #
+    #
+    #
 
     ##---------------- Select features --------------------##
     # TODO: Should call expand_time_index
@@ -163,7 +178,13 @@ def single_station_negative_binomial_regression(station_ID, sf_weather):
 
     return df_test, df_train, poisson_training_results, nb2_training_results, y_train, y_test, X_train, X_test
 
-
+def pickle_to_S3(key, obj):
+    # key='poisson.p', obj=[poisson_training_results]
+    s3_resource = boto3.resource('s3')
+    bucket='walkwize'
+    pickle_byte_obj = pickle.dumps([poisson_training_results])
+    s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
+    pass
 
 
 
@@ -202,11 +223,20 @@ station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 2
              22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
              44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
 
-
 for SID in station_IDs:
     df_test[SID], df_train[SID], poisson_training_results[SID], nb2_training_results[SID],y_train[SID], y_test[SID], X_train[SID], X_test[SID] = single_station_negative_binomial_regression(SID, df_weather)
 
-df_train[20]
+
+
+### TALKING TO S3
+
+
+
+
+pickle_to_S3('poisson.p',[poisson_training_results])
+
+
+
 pickle.dump( [poisson_training_results, df_test], open( "poisson.p", "wb" ) )
 poisson_training_results[1].conf_int()
 X_train[1]
