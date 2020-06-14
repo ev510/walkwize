@@ -28,7 +28,7 @@
 - __pedestrian:__
 Historic and real-time pedestrian data from the [City of Melbourne](http://www.pedestrian.melbourne.vic.gov.au/)
 
-- __street map:__ Walkable paths were generated from [openstreetmap](https://www.openstreetmap.org/) using the [OSMnx](https://osmnx.readthedocs.io/) package.
+- __street map:__ Walkable paths were generated from [OpenStreetMap](https://www.openstreetmap.org/) using the [OSMnx](https://osmnx.readthedocs.io/) package.
 
 
 ### Example

@@ -1,11 +1,11 @@
-geopandas
+pandas
+numpy
 rtree==0.9
 statsmodels
 osmnx
 streamlit
 scipy
 psycopg2
-pandas
 matplotlib
-numpy
-fbprophet
+boto3
+s3fs
