@@ -272,7 +272,7 @@ def pickle_to_S3(key, obj):
     # key='poisson.p', obj=[poisson_training_results]
     s3_resource = boto3.resource('s3')
     bucket='walkwize'
-    pickle_byte_obj = pickle.dumps([poisson_training_results])
+    pickle_byte_obj = pickle.dumps([[key]])
     s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
     pass
 
@@ -320,10 +320,10 @@ for SID in station_IDs:
 
 
 
+df_weather
 
-
-
-pickle_to_S3('poisson.p',[poisson_training_results])
+poisson_training_results
+pickle_to_S3('test.p',)
 
 
 
