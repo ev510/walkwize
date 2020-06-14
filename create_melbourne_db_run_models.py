@@ -1,23 +1,27 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
 from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
 import psycopg2
-import pandas as pd
-import datetime as dt
-
-
-
-import boto3
-
-
 
 from patsy import dmatrices
-import numpy as np
 import statsmodels.api as sm
-import matplotlib.pyplot as plt
 import statsmodels.formula.api as smf
 
 import datetime as dt
 import pickle
+
+#pushing to S3
+import boto3
+
+
+
+
+
+
+
 
 
 
