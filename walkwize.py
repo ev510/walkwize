@@ -14,6 +14,8 @@ import statsmodels.formula.api as smf
 import streamlit as st
 import timeit
 
+import boto3
+
 from patsy import dmatrices
 #from sqlalchemy import create_engine
 #from sqlalchemy_utils import database_exists, create_database
@@ -285,7 +287,33 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 	st.write('The path of shortest distance is shown in grey. The path of least contact is shown in blue.')
 	return
 
+def get_pickle_S3(key):
+	s3_resource = boto3.client('s3')
+	bucket='walkwize'
+	    # key='poisson.p', obj=[poisson_training_results]
+	    key='poisson.p'
 
+	    #pickle_byte_obj = pickle.dumps([poisson_training_results])
+	    #s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
+
+	response = s3_resource.get_object(Bucket=bucket, Key=key)
+	body = response['Body'].read()
+	df = pd.read_pickle(body)
+
+	#data = pickle.loads(body)
+	#data
+
+	import smart_open
+
+	with open(file_name, 'rb') as f:
+   	df = pd.read_pickle(response)
+	type(data)
+	return data
+
+
+
+s3 = boto3.client('s3')
+buckets = s3.list_buckets()
 
 #################### RUN THE WEB APP ####################################
 # While the user is getting set up, the webapp should run, and estimate for the next 24 hours.
@@ -293,6 +321,9 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 # Then implement model based current trends (a different model?)
 
 #import model parameters
+get_pickle_S3('poisson.p')
+
+
 poisson_training_results, junk = pickle.load( open( "poisson.p", "rb" ) )
 
 G, gdf_nodes, gdf_edges= get_map_data()
