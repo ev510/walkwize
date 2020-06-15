@@ -378,15 +378,23 @@ for SID in station_IDs:
     stations_summary = stations_summary.append(row)
 
 compare_dict = create_comparison_dict()
+mean_values_from_historic = pd.DataFrame.from_dict({SID: compare['mean'][SID,'June', 'Friday', 1] for SID in station_IDs}, orient='index')
 
-compare_dict
+mean _
 
-
-ans = {SID: compare['mean'][SID,'April', 'Friday', 1] for SID in station_IDs}
 type(ans)
+#
+ped_current = pd.read_json("https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
+ped_current = ped_current.groupby('sensor_id')['total_of_directions'].sum().to_frame()
 
 
-pd.DataFrame.from_dict(ans, orient='index')
+
+ped_current = pd.concat([mean_values_from_historic,ped_current],join='inner',axis=1)
+ped_current = ped_current.rename(columns={0:'mean','total_of_directions':'current'})
+ped_current['scale']=ped_current['current']/ped_current['mean']
+ped_current[ped_current['scale']>1]=1
+
+ped_current
 
 compare['mean'][22,'April', 'Friday', hour]
 
