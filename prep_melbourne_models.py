@@ -146,7 +146,7 @@ def identify_useable_stations(ped_stations):
 
 
 
-
+    station_ID=2
 
 def single_station_negative_binomial_regression(station_ID, sf_weather):
     ##---------------- Query SQL database --------------------##
@@ -165,9 +165,12 @@ def single_station_negative_binomial_regression(station_ID, sf_weather):
     df['earlier_hourly_counts']=df['hourly_counts'].shift(periods=1, fill_value=0)
 
 
-    #
-    # compare = df.groupby(['month', 'day','time'])['hourly_counts'].agg(['mean'])
-    # compare
+    compare['mean']['April', 'Friday', 0]
+
+    compare = df.groupby(['month', 'day','time'])['hourly_counts'].agg(['mean'])
+    type(compare)
+    c = compare.to_dict()
+    c['mean']
     # #compare.loc(compare['month']=='April')
     #
     #
@@ -330,10 +333,9 @@ stations_summary
 stations_summary['poisson_rmse'].mean()
 stations_summary['poisson_rmse']/stations_summary['mean']
 
-y_future, X_future = make_future()
 
-future_predicted = poisson_training_results[22].get_prediction(X_future).summary_frame()['mean']
-future_predicted
+
+
 
 # Save large pickle
 pickle.dump( [df_test, df_train, poisson_training_results, nb2_training_results,y_train, y_test, X_train, X_test], open( "poisson2.p", "wb" ) )
@@ -345,6 +347,7 @@ ped_historic.groupby(by='sensor_id')['date_time'].agg(["min","max"])
 
 #### EDA PLOTTING #####
 SID = 8
+y_future, X_future = make_future()
 poisson_predictions = poisson_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
 nb2_predictions = nb2_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
 
@@ -378,3 +381,64 @@ axes.legend(fancybox = True, framealpha=0);
 b.autofmt_xdate()
 b.savefig('predict.png', transparent = True,dpi=600)
 b
+
+
+
+
+####
+
+    sql_query = """SELECT * FROM data_ped_historic WHERE sensor_id = 1 AND year > 2019;"""
+    data = pd.read_sql_query(sql_query,engine)
+    data = data.set_index(pd.to_datetime(data['date_time']))
+    data
+
+
+
+c = plt.figure(figsize=(12,4));
+axes = c.add_axes([.2, .2, .7, .7]);
+axes.plot(data['hourly_counts'], '.',label='forecast');
+import matplotlib.dates as mdates
+myFmt = mdates.DateFormatter('%H:00')
+axes.xaxis.set_major_formatter(myFmt)
+axes.legend(fancybox = True, framealpha=0);
+c.autofmt_xdate()
+axes.set_xlim(737450+112, 737457+112);
+
+#c.savefig('predict.png', transparent = True,dpi=600)
+axes.get_xlim()
+c
+
+
+## FIGURE D
+
+#plt.rc('axes',edgecolor='w')
+
+sql_query = """SELECT hourly_counts FROM data_ped_historic;"""
+data = pd.read_sql_query(sql_query,engine)
+
+# An "interface" to matplotlib.axes.Axes.hist() method
+d = plt.figure(figsize=(12,4));
+axes = d.add_axes([.3, .2, .7, .7]);
+n, bins, patches = axes.hist(x=data['hourly_counts'], bins=180, color="lightgrey", alpha=0.7, rwidth=0.85, lw=0);
+axes.set_title('All stations');
+axes.set_xlabel('pedestrians per hour')
+axes.set_ylabel('count')
+axes.set_yticklabels(['0','0.5', '1 mil'])
+axes.set_xlim(0, 2500);
+
+d
+
+
+
+
+print(plt.style.available)
+plt.style.use('dark_background')
+plt.rcParams.update({'font.size': 22})
+
+d.savefig('histogram.png', transparent = True,dpi=300)
+
+
+plt.text(23, 45, r'$\mu=15, b=3$')
+maxfreq = n.max()
+# Set a clean upper y-axis limit.
+axes.ylim(ymax=np.ceil(maxfreq / 10) * 10 if maxfreq % 10 else maxfreq + 10)
