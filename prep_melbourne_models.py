@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
@@ -12,6 +13,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 import datetime as dt
+
 import pickle
 
 #pushing to S3
@@ -112,18 +114,16 @@ def sql_query_ped_historic():
 def make_future():
     # Creating the next 24 hours of AUSTRALIA time
     now = dt.datetime.utcnow()
-    # Round to the next hour (-1), shift to Australia time (-10)
-    now -= dt.timedelta(hours = -11, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
+    # Round to the next hour
+    now -= dt.timedelta(hours = -10-1, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
     # Create next 24 hours
-    future_times = pd.date_range(now, now+dt.timedelta(hours=24),freq='h')
-    type(future_times)
-
-    future = make_future().to_frame()
+    future = pd.date_range(now, now+dt.timedelta(hours=24),freq='h').to_frame()
+    # Prep for model input
     future = expand_time_index(future)
     future['hourly_counts']=0
     expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
     y_future, X_future = dmatrices(expr, future, return_type='dataframe')
-    return X_future
+    return y_future, X_future
 
 ################################################################################
 def expand_time_index(df):
@@ -330,9 +330,10 @@ stations_summary
 stations_summary['poisson_rmse'].mean()
 stations_summary['poisson_rmse']/stations_summary['mean']
 
+y_future, X_future = make_future()
 
 future_predicted = poisson_training_results[22].get_prediction(X_future).summary_frame()['mean']
-
+future_predicted
 
 # Save large pickle
 pickle.dump( [df_test, df_train, poisson_training_results, nb2_training_results,y_train, y_test, X_train, X_test], open( "poisson2.p", "wb" ) )
@@ -340,3 +341,40 @@ pickle.dump( [df_test, df_train, poisson_training_results, nb2_training_results,
 [df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )
 
 ped_historic.groupby(by='sensor_id')['date_time'].agg(["min","max"])
+
+
+#### EDA PLOTTING #####
+SID = 8
+poisson_predictions = poisson_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
+nb2_predictions = nb2_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
+
+# Sample time-series data. Consider highlighting zero-inflatedness.
+a = plt.figure(figsize=(4,4));
+axes = a.add_axes([.2, .2, .7, .7]);
+axes.plot(y_train[SID],'.',label='training data');
+#axes.plot(pd.to_datetime(train_datetime),predictions,'.')
+axes.plot(y_test[SID],'.',label='testing data');
+axes.plot(poisson_predictions,'.',label='poisson prediction');
+#axes.plot(nb2_predictions,'.',label='nb2');
+axes.set_xlim(737014, 737018);
+axes.legend(fancybox = True, framealpha=0);
+myFmt = mdates.DateFormatter('%Y-%m-%d')
+axes.xaxis.set_major_formatter(myFmt)
+axes.xaxis.set_major_locator(mdates.DayLocator(interval=1))   #to get a tick every 15 minutes
+a.autofmt_xdate()
+a.savefig('train.png',transparent =True, dpi=600)
+a
+
+
+# Sample prediction data.
+b = plt.figure(figsize=(4,4));
+axes = b.add_axes([.2, .2, .7, .7]);
+future_predicted = poisson_training_results[SID].get_prediction(X_future).summary_frame()['mean']
+axes.plot(future_predicted, label='forecast');
+import matplotlib.dates as mdates
+myFmt = mdates.DateFormatter('%H:00')
+axes.xaxis.set_major_formatter(myFmt)
+axes.legend(fancybox = True, framealpha=0);
+b.autofmt_xdate()
+b.savefig('predict.png', transparent = True,dpi=600)
+b
