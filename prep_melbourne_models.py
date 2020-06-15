@@ -143,10 +143,89 @@ def identify_useable_stations(ped_stations):
     return ped_stations_to_use
 
 
+def scaled_poisson_regression(station_ID, sf_weather):
+    ##---------------- Query SQL database --------------------##
+
+    sql_query = """SELECT * FROM data_ped_historic WHERE sensor_id = {0} AND year < 2020 AND year > 2013;""".format(str(station_ID))
+    ## Query inactive station
+    df = pd.read_sql_query(sql_query,engine)
+    ## TODO: This SHOULD be handled in the SQL creation now, but needs to be confirmed
+    df['hourly_counts'] = df['hourly_counts'].replace(',','', regex=True).astype(float)
+    df = df.set_index(pd.to_datetime(df['date_time']))
+
+    df = pd.concat([df,df_weather],axis=1,join='inner').sort_index()
+
+    ##---------------- Select features --------------------##
+    # TODO: Should call expand_time_index
+    ds = df.index.to_series()
+    df_prepped = pd.DataFrame()
+    df_prepped['month'] = ds.dt.month
+    df_prepped['day_of_week'] = ds.dt.dayofweek
+
+    df_prepped['sin_hour'] = np.sin(2*np.pi*ds.dt.hour/24)
+    df_prepped['cos_hour'] = np.cos(2*np.pi*ds.dt.hour/24)
+
+    df_prepped['hourly_counts']=df['hourly_counts']
+    df_prepped = df_prepped.dropna()
+
+    expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
+
+    #df['earlier']=df.index-dt.timedelta(hours=1)
+    #df = df.drop(['date_time','index','id'], axis=1)
+    #df['earlier_hourly_counts']=df['hourly_counts'].shift(periods=1, fill_value=0)
 
 
 
-    station_ID=2
+
+    ##---------------- Split data set -------------------##
+    mask = np.random.rand(len(df_prepped)) < 0.8
+    df_train = df_prepped[mask]
+    df_test = df_prepped[~mask]
+    #print('Training data set length='+str(len(df_train)));
+    #print('Testing data set length='+str(len(df_test)));
+    y_train, X_train = dmatrices(expr, df_train, return_type='dataframe')
+    y_test, X_test = dmatrices(expr, df_test, return_type='dataframe')
+
+    ##---------------- Build model --------------------##
+    poisson_training_results = sm.GLM(y_train, X_train, family=sm.families.Poisson()).fit()
+    poisson_predictions = poisson_training_results.get_prediction(X_test).summary_frame()['mean']
+
+    poisson_training_results.rmse =  sm.tools.eval_measures.rmse(df_test['hourly_counts'], poisson_predictions)
+
+    print(station_ID)
+
+    return df_test, df_train, poisson_training_results, nb2_training_results, y_train, y_test, X_train, X_test
+
+
+
+def create_comparison_dict():
+    sql_query = """SELECT * FROM data_ped_historic WHERE year < 2020 AND year > 2014;"""
+    ## Query inactive station
+
+    df = pd.read_sql_query(sql_query,engine)
+    compare = df.groupby(['sensor_id','month', 'day','time'])['hourly_counts'].agg(['mean'])
+    compare_dict = compare.to_dict()
+    return compare_dict
+    #compare['mean']['April', 'Friday', 0]
+
+
+# #compare.loc(compare['month']=='April')
+#
+#
+# df_gb = df.groupby(['Factor1','Factor2'])['Values'].aggregate([np.mean, np.std])
+# df_sum = df_gb.groupby(['Factor1','Factor2']).aggregate(np.sum)
+# df_sum.to_dict()
+# type(compare)
+# compare.items()
+#
+#
+# # Drop first time step, no historic data
+#
+#
+#
+
+
+
 
 def single_station_negative_binomial_regression(station_ID, sf_weather):
     ##---------------- Query SQL database --------------------##
@@ -159,32 +238,6 @@ def single_station_negative_binomial_regression(station_ID, sf_weather):
     df = df.set_index(pd.to_datetime(df['date_time']))
 
     df = pd.concat([df,df_weather],axis=1,join='inner').sort_index()
-    df['earlier']=df.index-dt.timedelta(hours=1)
-
-    df = df.drop(['date_time','index','id'], axis=1)
-    df['earlier_hourly_counts']=df['hourly_counts'].shift(periods=1, fill_value=0)
-
-
-    compare['mean']['April', 'Friday', 0]
-
-    compare = df.groupby(['month', 'day','time'])['hourly_counts'].agg(['mean'])
-    type(compare)
-    c = compare.to_dict()
-    c['mean']
-    # #compare.loc(compare['month']=='April')
-    #
-    #
-    # df_gb = df.groupby(['Factor1','Factor2'])['Values'].aggregate([np.mean, np.std])
-    # df_sum = df_gb.groupby(['Factor1','Factor2']).aggregate(np.sum)
-    # df_sum.to_dict()
-    # type(compare)
-    # compare.items()
-    #
-    #
-    # # Drop first time step, no historic data
-    #
-    #
-    #
 
     ##---------------- Select features --------------------##
     # TODO: Should call expand_time_index
@@ -324,7 +377,22 @@ for SID in station_IDs:
                         name=SID)
     stations_summary = stations_summary.append(row)
 
+compare_dict = create_comparison_dict()
 
+compare_dict
+
+
+ans = {SID: compare['mean'][SID,'April', 'Friday', 1] for SID in station_IDs}
+type(ans)
+
+
+pd.DataFrame.from_dict(ans, orient='index')
+
+compare['mean'][22,'April', 'Friday', hour]
+
+for SID in station_IDs:
+    for hour in range(0,24):
+        print(compare_dict['mean'][SID,'April', 'Friday', hour])
 
 
 
@@ -346,6 +414,14 @@ ped_historic.groupby(by='sensor_id')['date_time'].agg(["min","max"])
 
 
 #### EDA PLOTTING #####
+
+
+print(plt.style.available)
+plt.style.use('dark_background')
+plt.rcParams.update({'font.size': 22})
+
+
+
 SID = 8
 y_future, X_future = make_future()
 poisson_predictions = poisson_training_results[SID].get_prediction(X_test[SID]).summary_frame()['mean']
@@ -418,8 +494,8 @@ data = pd.read_sql_query(sql_query,engine)
 
 # An "interface" to matplotlib.axes.Axes.hist() method
 d = plt.figure(figsize=(12,4));
-axes = d.add_axes([.3, .2, .7, .7]);
-n, bins, patches = axes.hist(x=data['hourly_counts'], bins=180, color="lightgrey", alpha=0.7, rwidth=0.85, lw=0);
+axes = d.add_axes([.3, .2, .6, .7]);
+n, bins, patches = axes.hist(x=data['hourly_counts'], bins=180, rwidth=0.85, lw=0);
 axes.set_title('All stations');
 axes.set_xlabel('pedestrians per hour')
 axes.set_ylabel('count')
@@ -429,16 +505,51 @@ axes.set_xlim(0, 2500);
 d
 
 
+d.savefig('histogram.png', transparent = True,dpi=600)
 
 
-print(plt.style.available)
-plt.style.use('dark_background')
-plt.rcParams.update({'font.size': 22})
-
-d.savefig('histogram.png', transparent = True,dpi=300)
 
 
-plt.text(23, 45, r'$\mu=15, b=3$')
-maxfreq = n.max()
-# Set a clean upper y-axis limit.
-axes.ylim(ymax=np.ceil(maxfreq / 10) * 10 if maxfreq % 10 else maxfreq + 10)
+
+
+data
+
+data[data[station_ID==22]
+
+
+
+sql_query = """SELECT date_time, hourly_counts FROM data_ped_historic WHERE sensor_id = 22;"""
+data = pd.read_sql_query(sql_query,engine)
+
+
+data = data.set_index(pd.to_datetime(data['date_time']))
+
+data
+SID = 22
+
+
+## PLOT OF COVID TREND
+
+# Sample time-series data. Consider highlighting zero-inflatedness.
+e = plt.figure(figsize=(12,4));
+axes = e.add_axes([.2, .3, .7, .6]);
+axes.plot(data['hourly_counts'],'.', label='historic data');
+myFmt = mdates.DateFormatter('%b %Y')
+axes.xaxis.set_major_formatter(myFmt)
+e.autofmt_xdate()
+axes.set_ylabel('hourly \ncount',rotation=0,labelpad=50)
+axes.set_title('Station 22: Flinders St & Elizabeth St')
+axes.get_xlim()
+
+#
+ped_current = pd.read_json("https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
+ped_current = ped_current.groupby('sensor_id')['total_of_directions'].sum().to_frame()
+ped_current = ped_current.join(ped_stations[['latitude','longitude']])
+#
+axes.set_xlim(dt.datetime(year=2020,month=1,day=1),dt.datetime(year=2020,month=6,day=30))
+now = dt.datetime.utcnow()- dt.timedelta(hours = -10)
+axes.plot(now,ped_current[ped_current.index==22]['total_of_directions'],'.');
+axes.legend(fancybox = True, framealpha=0);
+
+e.savefig('2020_trend.png', transparent = True,dpi=600)
+e
