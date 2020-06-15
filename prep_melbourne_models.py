@@ -1,3 +1,4 @@
+# %% codecell
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -15,104 +16,14 @@ import pickle
 
 #pushing to S3
 import boto3
+# pulling from S3 (idealy they two would use same library)
+import s3fs
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-dbname = 'melbourne_db'
-username = 'emilyvoytek'
-pswd = 'founded1835'
-
-###### 'engine' is a connection to a database
-engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname))
-
-
-######  LOAD THE HISTORIC PED DATA  ######
-#stations = pd.read_json("https://data.melbourne.vic.gov.au/resource/b2ak-trbp.json?$limit=10000000")
-#ped_historic = stations
-
-#len(stations)
-#stations.head()
-ped_historic = pd.read_csv('./data/Pedestrian_Counting_System___2009_to_Present__counts_per_hour_June04.csv')
-ped_historic.columns=(['id', 'date_time', 'year', 'month', 'mdate', 'day', 'time', 'sensor_id','sensor_name', 'hourly_counts'])
-ped_historic['hourly_counts'] = ped_historic['hourly_counts'].replace(',','', regex=True).astype(float)
-
-
-# ATTENTION: THIS TAKES FOREVER (~5-10 min) TO RUN
-# ped_historic.to_sql('data_ped_historic', engine, if_exists='replace')
-
-
-
-
-######  LOAD PED STATION INFORMATION  ######
-ped_stations = pd.read_csv('./data/Pedestrian_Counting_System_Sensor_Locations.csv')
-ped_stations['installation_date'] = pd.to_datetime(ped_stations['installation_date'])
-
-ped_stations.set_index("sensor_id",inplace=True)
-ped_stations = ped_stations.sort_index()
-ped_stations.to_sql('data_ped_stations', engine, if_exists='replace')
-
-
-
-###### LOAD HISTORIC WEATHER DATA ######
-df_rain = pd.read_csv('./data/IDCJAC0009_086338_1800_Data.csv')
-df_rain.columns = ['product_code', 'station_number', 'year', 'month', 'day', 'rainfall_mm','days_measured', 'quality']
-df_rain['datetime']=pd.to_datetime(df_rain[['year','month', 'day']])
-df_rain = df_rain.set_index(pd.to_datetime(df_rain['datetime']))
-#df_rain.to_sql('data_rain', engine, if_exists='replace')
-#
-df_temp_max = pd.read_csv('./data/IDCJAC0010_086338_1800_Data.csv')
-df_temp_max.columns = ['product_code', 'station_number', 'year', 'month', 'day', 'maximum_temperature_C',
-       'days_measured', 'quality']
-df_temp_max['datetime']=pd.to_datetime(df_temp_max[['year','month', 'day']])
-df_temp_max = df_temp_max.set_index(pd.to_datetime(df_temp_max['datetime']))
-#df_temp_max.to_sql('data_max_temp', engine, if_exists='replace')
-#
-df_temp_min = pd.read_csv('./data/IDCJAC0011_086338_1800_Data.csv')
-df_temp_min.columns = ['product_code', 'station_Number', 'year', 'month', 'day', 'minimum_temperature_C',
-       'days_measured', 'quality']
-df_temp_min['datetime']=pd.to_datetime(df_temp_min[['year','month', 'day']])
-df_temp_min = df_temp_min.set_index(pd.to_datetime(df_temp_min['datetime']))
-#df_temp_min.to_sql('data_min_temp', engine, if_exists='replace')
-#
-df_solar = pd.read_csv('./data/IDCJAC0016_086338_1800_Data.csv')
-df_solar.columns = ['product_code', 'station_Number', 'year', 'month', 'day', 'daily_solar_exposure_MJ']
-df_solar['datetime']=pd.to_datetime(df_solar[['year','month', 'day']])
-df_solar = df_solar.set_index(pd.to_datetime(df_solar['datetime']))
-#df_solar.to_sql('data_solar', engine, if_exists='replace')
-#
-# COMBINED WEATHER DB
-df_weather = pd.concat([df_temp_min['minimum_temperature_C'],df_temp_max['maximum_temperature_C'],df_solar['daily_solar_exposure_MJ'], df_rain['rainfall_mm']], axis=1, join='inner')
-df_weather = df_weather.resample('1H').pad()
-df_weather.to_sql('data_weather', engine, if_exists='replace')
-
-
-
-
-###### Identify stations to model #######
-def identify_useable_stations(ped_stations):
-    # Active stations, installed before Jan 01, 2018
-    ped_stations_to_use = ped_stations[(ped_stations.installation_date<dt.datetime(2018,1,1,0,0,0)) & (ped_stations['status']=='A')].index
-    return ped_stations_to_use
-
-index = identify_useable_stations(ped_stations)
-
-ped_historic.groupby(by='sensor_id')['date_time'].agg(["min","max"])
-
-
-
-
-
+# %% codecell
 
 ################################################################################
 def set_up_database():
@@ -122,8 +33,80 @@ def set_up_database():
 
     ## 'engine' is a connection to a database
     engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname))
-    # Replace localhost with IP address if accessing a remote server\
+    # Replace localhost with IP address if accessing a remote server
     return engine
+
+###### LOAD HISTORIC WEATHER DATA ######
+def make_table_weather():
+    df_rain = pd.read_csv('./data/IDCJAC0009_086338_1800_Data.csv')
+    df_rain.columns = ['product_code', 'station_number', 'year', 'month', 'day', 'rainfall_mm','days_measured', 'quality']
+    df_rain['datetime']=pd.to_datetime(df_rain[['year','month', 'day']])
+    df_rain = df_rain.set_index(pd.to_datetime(df_rain['datetime']))
+    #df_rain.to_sql('data_rain', engine, if_exists='replace')
+    #
+    df_temp_max = pd.read_csv('./data/IDCJAC0010_086338_1800_Data.csv')
+    df_temp_max.columns = ['product_code', 'station_number', 'year', 'month', 'day', 'maximum_temperature_C',
+           'days_measured', 'quality']
+    df_temp_max['datetime']=pd.to_datetime(df_temp_max[['year','month', 'day']])
+    df_temp_max = df_temp_max.set_index(pd.to_datetime(df_temp_max['datetime']))
+    #df_temp_max.to_sql('data_max_temp', engine, if_exists='replace')
+    #
+    df_temp_min = pd.read_csv('./data/IDCJAC0011_086338_1800_Data.csv')
+    df_temp_min.columns = ['product_code', 'station_Number', 'year', 'month', 'day', 'minimum_temperature_C',
+           'days_measured', 'quality']
+    df_temp_min['datetime']=pd.to_datetime(df_temp_min[['year','month', 'day']])
+    df_temp_min = df_temp_min.set_index(pd.to_datetime(df_temp_min['datetime']))
+    #df_temp_min.to_sql('data_min_temp', engine, if_exists='replace')
+    #
+    df_solar = pd.read_csv('./data/IDCJAC0016_086338_1800_Data.csv')
+    df_solar.columns = ['product_code', 'station_Number', 'year', 'month', 'day', 'daily_solar_exposure_MJ']
+    df_solar['datetime']=pd.to_datetime(df_solar[['year','month', 'day']])
+    df_solar = df_solar.set_index(pd.to_datetime(df_solar['datetime']))
+    #df_solar.to_sql('data_solar', engine, if_exists='replace')
+    #
+    # COMBINED WEATHER DB
+    df_weather = pd.concat([df_temp_min['minimum_temperature_C'],df_temp_max['maximum_temperature_C'],df_solar['daily_solar_exposure_MJ'], df_rain['rainfall_mm']], axis=1, join='inner')
+    df_weather = df_weather.resample('1H').pad()
+    df_weather.to_sql('data_weather', engine, if_exists='replace')
+
+def make_table_ped_historic():
+    ######  LOAD THE HISTORIC PED DATA  ######
+    #stations = pd.read_json("https://data.melbourne.vic.gov.au/resource/b2ak-trbp.json?$limit=10000000")
+    #ped_historic = stations
+
+    #len(stations)
+    #stations.head()
+    ped_historic = pd.read_csv('./data/Pedestrian_Counting_System___2009_to_Present__counts_per_hour_June04.csv')
+    ped_historic.columns=(['id', 'date_time', 'year', 'month', 'mdate', 'day', 'time', 'sensor_id','sensor_name', 'hourly_counts'])
+    ped_historic['hourly_counts'] = ped_historic['hourly_counts'].replace(',','', regex=True).astype(float)
+
+    # ATTENTION: THIS TAKES FOREVER (~5-10 min) TO RUN
+    # ped_historic.to_sql('data_ped_historic', engine, if_exists='replace')
+
+def make_table_ped_station():
+    ######  LOAD PED STATION INFORMATION  ######
+    ped_stations = pd.read_csv('./data/Pedestrian_Counting_System_Sensor_Locations.csv')
+    ped_stations['installation_date'] = pd.to_datetime(ped_stations['installation_date'])
+
+    ped_stations.set_index("sensor_id",inplace=True)
+    ped_stations = ped_stations.sort_index()
+    ped_stations.to_sql('data_ped_stations', engine, if_exists='replace')
+    return ped_stations
+
+################################################################################
+def sql_query_weather():
+    ##---------------- Query SQL database --------------------##
+    sql_query = """SELECT * FROM data_weather;"""
+    ## Query inactive station
+    df_weather = pd.read_sql_query(sql_query,engine)
+    ## TODO: This SHOULD be handled in the SQL creation now, but needs to be confirmed
+    df_weather = df_weather.set_index(df_weather['datetime'])
+    return df_weather
+
+def sql_query_ped_historic():
+    sql_query = """SELECT MIN() FROM data_ped_historic WHERE sensor_id = {0} AND year < 2020 AND year > 2016;""".format(str(station_ID))
+    sql_query2 = """SELECT sensor_id, MIN(date_time), MAX(date_time) FROM data_ped_historic GROUP BY sensor_id"""
+    return pd.read_sql_query(sql_query2,engine)
 
 ################################################################################
 def make_future():
@@ -142,12 +125,7 @@ def make_future():
     y_future, X_future = dmatrices(expr, future, return_type='dataframe')
     return X_future
 
-
-
-
 ################################################################################
-
-
 def expand_time_index(df):
     ds = df.index.to_series()
     df['month'] = ds.dt.month
@@ -158,18 +136,17 @@ def expand_time_index(df):
     df['cos_hour'] = np.cos(2*np.pi*ds.dt.hour/24)
     return df
 
-################################################################################
-def weather_sql_query():
-    ##---------------- Query SQL database --------------------##
-    sql_query = """SELECT * FROM data_weather;"""
-    ## Query inactive station
-    df_weather = pd.read_sql_query(sql_query,engine)
-    ## TODO: This SHOULD be handled in the SQL creation now, but needs to be confirmed
-    df_weather = df_weather.set_index(df_weather['datetime'])
+###### Identify stations to model #######
+def identify_useable_stations(ped_stations):
+    # Active stations, installed before Jan 01, 2018
+    ped_stations_to_use = ped_stations[(ped_stations.installation_date<dt.datetime(2018,1,1,0,0,0)) & (ped_stations['status']=='A')].index
+    return ped_stations_to_use
 
-    return df_weather
 
-    station_ID = 20;
+
+
+
+
 
 def single_station_negative_binomial_regression(station_ID, sf_weather):
     ##---------------- Query SQL database --------------------##
@@ -285,6 +262,11 @@ def pickle_to_S3(key, obj):
     pickle_byte_obj = pickle.dumps([obj])
     s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
 
+def pickle_from_S3(key):
+    # key = 'poisson.p'
+    bucket='walkwize'
+    data_location = 's3://{}/{}'.format(bucket, key)
+    return = pd.read_pickle(data_location)
 
 
 
@@ -292,9 +274,20 @@ def pickle_to_S3(key, obj):
 ################################################################################
 ################################################################################
 ##### WHERE STUFF RUNS ####
-np.random.RandomState(42)
+np.random.RandomState(42);
 engine = set_up_database()
 
+df_weather = sql_query_weather()
+df_weather.resample('1H').pad();
+
+ped_stations = make_table_ped_station();
+index = identify_useable_stations(ped_stations)
+# SMALL SUBSET
+station_IDs= range(20,23)
+# FULL SET
+station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
+             22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
+             44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
 
 # For now, I will save all model results.
 poisson_training_results = {}
@@ -310,67 +303,9 @@ X_train = {}
 X_test = {}
 
 
-df_weather = weather_sql_query()
-df_weather.resample('1H').pad();
-
-
-# SMALL SUBSET
-station_IDs= range(20,23)
-
-
-#SINGLE PICKLE
-station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
-             22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
-             44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
-
 for SID in station_IDs:
     df_test[SID], df_train[SID], poisson_training_results[SID], nb2_training_results[SID],y_train[SID], y_test[SID], X_train[SID], X_test[SID] = single_station_negative_binomial_regression(SID, df_weather)
 
-
-
-
-
-
-
-poisson_training_results
-
-pickle_to_S3('poisson.p',poisson_training_results)
-
-    # key='poisson.p', obj=[poisson_training_results]
-s3_resource = boto3.resource('s3')
-bucket='walkwize'
-key='poisson.p'
-pickle_byte_obj = pickle.dumps(poisson_training_results)
-s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
-type(pickle_byte_obj)
-
-import s3fs
-bucket='walkwize'
-data_key = 'poisson.p'
-data_location = 's3://{}/{}'.format(bucket, data_key)
-pd.read_pickle(data_location)
-
-
-
-
-
-pickle.dump( [df_test, df_train, poisson_training_results, nb2_training_results,y_train, y_test, X_train, X_test], open( "poisson2.p", "wb" ) )
-poisson_training_results[1].conf_int()
-X_train[1]
-
-## DOUBLE PICKLE
-station_IDs_a = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
-             22, 23, 24, 26, 27, 28, 29]
-station_IDs_b = [30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
-             44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
-
-for SID in station_IDs_a:
-    df_test[SID], df_train[SID], poisson_training_results_a[SID], nb2_training_results[SID],y_train[SID], y_test[SID], X_train[SID], X_test[SID] =single_station_negative_binomial_regression(SID, df_weather)
-pickle.dump( [poisson_training_results_a], open( "poisson_a.p", "wb" ) )
-
-for SID in station_IDs_b:
-    df_test[SID], df_train[SID], poisson_training_results_b[SID], nb2_training_results[SID],y_train[SID], y_test[SID], X_train[SID], X_test[SID] =single_station_negative_binomial_regression(SID, df_weather)
-pickle.dump( [poisson_training_results_b], open( "poisson_b.p", "wb" ) )
 
 
 ### SUMMARY STATISTICS
@@ -388,6 +323,9 @@ for SID in station_IDs:
 
 
 
+
+
+
 stations_summary
 stations_summary['poisson_rmse'].mean()
 stations_summary['poisson_rmse']/stations_summary['mean']
@@ -396,19 +334,9 @@ stations_summary['poisson_rmse']/stations_summary['mean']
 future_predicted = poisson_training_results[22].get_prediction(X_future).summary_frame()['mean']
 
 
-
-
+# Save large pickle
+pickle.dump( [df_test, df_train, poisson_training_results, nb2_training_results,y_train, y_test, X_train, X_test], open( "poisson2.p", "wb" ) )
 # LOAD BIG PICKLE
 [df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )
 
-
-
-
-
-
-
-    sql_query = """SELECT MIN() FROM data_ped_historic WHERE sensor_id = {0} AND year < 2020 AND year > 2016;""".format(str(station_ID))
-
-    sql_query2 = """SELECT sensor_id, MIN(date_time), MAX(date_time) FROM data_ped_historic GROUP BY sensor_id"""
-    df = pd.read_sql_query(sql_query2,engine)
-    df.loc[21]
+ped_historic.groupby(by='sensor_id')['date_time'].agg(["min","max"])
