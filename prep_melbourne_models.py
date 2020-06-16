@@ -21,6 +21,23 @@ import boto3
 # pulling from S3 (idealy they two would use same library)
 import s3fs
 
+import datetime as dt
+import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
+import osmnx as ox
+import pandas as pd
+import pickle
+import psycopg2
+import pydeck as pdk
+import scipy
+import scipy.interpolate as interpolate
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+import streamlit as st
+import timeit
+import s3fs
+import boto3
 
 
 
@@ -209,22 +226,23 @@ def create_comparison_dict():
     #compare['mean']['April', 'Friday', 0]
 
 
-# #compare.loc(compare['month']=='April')
-#
-#
-# df_gb = df.groupby(['Factor1','Factor2'])['Values'].aggregate([np.mean, np.std])
-# df_sum = df_gb.groupby(['Factor1','Factor2']).aggregate(np.sum)
-# df_sum.to_dict()
-# type(compare)
-# compare.items()
-#
-#
-# # Drop first time step, no historic data
-#
-#
-#
+def get_map_data():
+	G = ox.graph_from_bbox(-37.8000,-37.8250,144.9800, 144.9500, network_type='walk')
+	gdf_nodes, gdf_edges = ox.utils_graph.graph_to_gdfs(G, nodes=True, edges=True, node_geometry=True, fill_edge_geometry=True)
+	gdf_edges['centroid_x'] = gdf_edges.apply(lambda r: r.geometry.centroid.x, axis=1)
+	gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=1)
+	return gdf_nodes, gdf_edges
 
 
+gdf_nodes, gdf_edges = get_map_data()
+
+pickle_to_S3('gdf_nodes.p',gdf_nodes)
+pickle_to_S3('gdf_edges.p',gdf_edges)
+
+
+
+nodes = pickle_from_S3('gdf_nodes.p')
+edges = pickle_from_S3('gdf_edges.p')
 
 
 def single_station_negative_binomial_regression(station_ID, sf_weather):
@@ -315,14 +333,14 @@ def pickle_to_S3(key, obj):
     # key='poisson.p', obj=[poisson_training_results]
     s3_resource = boto3.resource('s3')
     bucket='walkwize'
-    pickle_byte_obj = pickle.dumps([obj])
+    pickle_byte_obj = pickle.dumps(obj)
     s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
 
 def pickle_from_S3(key):
     # key = 'poisson.p'
     bucket='walkwize'
     data_location = 's3://{}/{}'.format(bucket, key)
-    return = pd.read_pickle(data_location)
+    return pd.read_pickle(data_location)
 
 
 
