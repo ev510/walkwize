@@ -356,8 +356,9 @@ gdf_edges = pickle_from_S3('gdf_edges.p')
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 G = pickle_from_S3('G.p')
 
-#G, gdf_nodes, gdf_edges= get_map_data()
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 ped_stations = get_ped_station_data()
+
 ped_current = get_ped_data_current()
 ped_predicted = get_ped_predicted(poisson_training_results)
 ped_predicted.index.name = 'sensor_id'
