@@ -107,18 +107,18 @@ def make_pedlayer(df, color_array):
 		aggregation="mean",
 		get_weight="ped_rate")
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-def get_map_data():
-	#Returns: map as graph from graphml
-	#Cached by Streamlit
-	#G = ox.graph_from_bbox(-37.8061,-37.8200,144.9769, 144.9569, network_type='walk')
-	G = ox.graph_from_bbox(-37.8000,-37.8250,144.9800, 144.9500, network_type='walk')
-
-	gdf_nodes, gdf_edges = ox.utils_graph.graph_to_gdfs(G, nodes=True, edges=True, node_geometry=True, fill_edge_geometry=True)
-	gdf_edges['centroid_x'] = gdf_edges.apply(lambda r: r.geometry.centroid.x, axis=1)
-	gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=1)
-
-	return G, gdf_nodes, gdf_edges
+# @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+# def get_map_data():
+# 	#Returns: map as graph from graphml
+# 	#Cached by Streamlit
+# 	#G = ox.graph_from_bbox(-37.8061,-37.8200,144.9769, 144.9569, network_type='walk')
+# 	G = ox.graph_from_bbox(-37.8000,-37.8250,144.9800, 144.9500, network_type='walk')
+#
+# 	gdf_nodes, gdf_edges = ox.utils_graph.graph_to_gdfs(G, nodes=True, edges=True, node_geometry=True, fill_edge_geometry=True)
+# 	gdf_edges['centroid_x'] = gdf_edges.apply(lambda r: r.geometry.centroid.x, axis=1)
+# 	gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=1)
+#
+# 	return G, gdf_nodes, gdf_edges
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_ped_station_data():
@@ -144,7 +144,18 @@ def get_model_results_data():
 	#poisson_training_results = pd.read_pickle(data_location)
 	return pd.read_pickle(data_location)
 
+def pickle_to_S3(key, obj):
+    # key='poisson.p', obj=[poisson_training_results]
+    s3_resource = boto3.resource('s3')
+    bucket='walkwize'
+    pickle_byte_obj = pickle.dumps(obj)
+    s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
 
+def pickle_from_S3(key):
+    # key = 'poisson.p'
+    bucket='walkwize'
+    data_location = 's3://{}/{}'.format(bucket, key)
+    return pd.read_pickle(data_location)
 
 def get_map_bounds(gdf_nodes, route1, route2):
 	#Inputs: node df, and two lists of nodes along path
@@ -336,9 +347,16 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 poisson_training_results = get_model_results_data()
 
 
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+gdf_nodes = pickle_from_S3('gdf_nodes.p')
 
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+gdf_edges = pickle_from_S3('gdf_edges.p')
 
-G, gdf_nodes, gdf_edges= get_map_data()
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+G = pickle_from_S3('G.p')
+
+#G, gdf_nodes, gdf_edges= get_map_data()
 ped_stations = get_ped_station_data()
 ped_current = get_ped_data_current()
 ped_predicted = get_ped_predicted(poisson_training_results)
