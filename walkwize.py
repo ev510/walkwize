@@ -124,7 +124,6 @@ def make_pedlayer(df, color_array):
 def get_ped_station_data():
 	ped_stations = pd.read_json("https://data.melbourne.vic.gov.au/resource/h57g-5234.json")
 	ped_stations.set_index("sensor_id",inplace=True)
-
 	return ped_stations
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
@@ -132,8 +131,6 @@ def get_ped_data_current():
 	ped_current = pd.read_json("https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
 	ped_current = ped_current.groupby('sensor_id')['total_of_directions'].sum().to_frame()
 	ped_current = ped_current.join(ped_stations[['latitude','longitude']])
-
-
 	return ped_current
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
@@ -151,6 +148,7 @@ def pickle_to_S3(key, obj):
     pickle_byte_obj = pickle.dumps(obj)
     s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
 
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def pickle_from_S3(key):
     # key = 'poisson.p'
     bucket='walkwize'
@@ -347,16 +345,12 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 poisson_training_results = get_model_results_data()
 
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 gdf_nodes = pickle_from_S3('gdf_nodes.p')
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 gdf_edges = pickle_from_S3('gdf_edges.p')
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 G = pickle_from_S3('G.p')
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 ped_stations = get_ped_station_data()
 
 ped_current = get_ped_data_current()
@@ -370,7 +364,11 @@ st.sidebar.header("Let's plan your walk!");
 
 input1 = st.sidebar.text_input('Where will you start?');
 input2 = st.sidebar.text_input('Where are you going?');
-slider = st.sidebar.slider('Conditions in __ hours?',0,24)
+slider1 = st.sidebar.slider('Conditions in __ hours?',0,24)
+#slider2 = st.sidebar.slider('Acceptable distance increase? (none to 2x)'],1,2)
+
+st.sidebar.header("Location Suggestions:");
+st.sidebar.markdown("*State Library of Victoria, Immigration Museum, Flagstaff Gardens, Vision Apartments*")
 
 #date = st.sidebar.date_input('When you you want to leave?',  max_value=dt.datetime(2020, 12, 31, 0, 0));
 #time = st.sidebar.time_input('What time do you want to leave?', value=None, key=None);
