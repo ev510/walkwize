@@ -384,6 +384,8 @@ ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']],COLO
 
 
 submit = st.sidebar.button('Find route', key=1)
+st.markdown("The current time in Melbourne: {}".format(dt.datetime.utcnow()-dt.timedelta(hours = -10)))
+
 if not submit:
 	st.pydeck_chart(pdk.Deck(
 		map_style="mapbox://styles/mapbox/light-v9",
@@ -395,9 +397,9 @@ else:
 			gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
 
 		else:
-			gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_predicted['latitude'], ped_predicted['longitude']))),np.array(ped_predicted[ped_predicted.columns[slider]]),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+			gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_predicted['latitude'], ped_predicted['longitude']))),np.array(ped_predicted[ped_predicted.columns[slider1]]),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
 
-		st.markdown(ped_predicted.columns[slider])
+		st.markdown(ped_predicted.columns[slider1])
 		gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
 		source_to_dest(G, gdf_nodes, gdf_edges, input1, input2)
 
