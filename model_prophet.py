@@ -38,39 +38,35 @@ sql_query = """SELECT date_time, hourly_counts FROM data_ped_historic WHERE sens
 df = pd.read_sql_query(sql_query,engine)
 df.columns= ['ds','y']
 df['y'] = df['y'].replace(',','', regex=True).astype(float)
-df['ds'].max()
-pd.to_datetime(df['ds']).max()
 
+from datetime import date
+import holidays
+
+vic = vic_holidays['2010-01-01':'2022-01-01']
+
+holidays = pd.DataFrame({
+  'holiday': 'Victoria',
+  'ds': pd.to_datetime([obj.strftime('%Y-%m-%d') for obj in vic])})
 
 ### Running Prophet
-m = Prophet.Prophet(seasonality_mode='multiplicative',changepoints=['2020-03-01 00:00:00','2020-04-01 00:00:00','2020-05-01 00:00:00','2020-05-31 00:00:00'])
-
-
+m = Prophet.Prophet(seasonality_mode='multiplicative', changepoints=cps['ds'])
 m.fit(df)
-
-
-
-
-changepoints = m.changepoints
-type(changepoints)
-type(changepoints.values[1])
-type(['2020-02-01 00:00:00','2020-03-01 00:00:00','2020-04-01 00:00:00','2020-05-01 00:00:00','2020-05-31 00:00:00'])
-
-
-np.concatenate((changepoints.values,np.array(['2020-02-01 00:00:00','2020-03-01 00:00:00','2020-04-01 00:00:00','2020-05-01 00:00:00','2020-05-31']) ))
-
-np.append(changepoints.values,'2020-01-01 00:00:00')
-changepoints.values.append()
-
-
-
-
-
 future = m.make_future_dataframe(freq='H',periods=2400)
 forecast = m.predict(future)
 
 
+cps = pd.DataFrame(m.changepoints)
+cps = cps.append({'ds':'2020-01-01 00:00:00'}, ignore_index=True);
+cps = cps.append({'ds':'2020-02-01 00:00:00'}, ignore_index=True);
+cps = cps.append({'ds':'2020-03-01 00:00:00'}, ignore_index=True);
+cps = cps.append({'ds':'2020-04-01 00:00:00'}, ignore_index=True);
+cps = cps.append({'ds':'2020-05-01 00:00:00'}, ignore_index=True);
+cps = cps.append({'ds':'2020-05-15 00:00:00'}, ignore_index=True);
 
+cps['ds']
+
+
+m.plot_components(forecast);
 
 ## Prophet plot
 figsize=(10,6)
@@ -112,100 +108,44 @@ m.changepoints
 
 
 
+def plot_prophet_components(forecast):
+    ### Modify Prophet component plot
+    plt.style.use('dark_background')
+    plt.style.use('default')
 
-### Modify Prophet component plot
-plt.style.use('dark_background')
-plt.style.use('default')
+    plt.rcParams.update({'font.size': 10})
 
-plt.rcParams.update({'font.size': 10})
+    plt.style.use('default')
 
-plt.style.use('default')
+    fig = m.plot_components(forecast,figsize=(4,6));
 
-fig = m.plot_components(forecast,figsize=(4,6));
+    for i in range(0,4):
+        fig.axes[i].set_ylim(-1600,1600)
 
-for i in range(0,4):
-    fig.axes[i].set_ylim(-1600,1600)
+    fig.axes[0].set_xlabel('year');
+    fig.axes[1].set_xlabel('day of week');
+    fig.axes[2].set_xlabel('day of year');
+    fig.axes[3].set_xlabel('time of day');
 
-fig.axes[0].set_xlabel('year');
-fig.axes[1].set_xlabel('day of week');
-fig.axes[2].set_xlabel('day of year');
-fig.axes[3].set_xlabel('time of day');
+    fig.axes[0].set_ylabel('signal\nstrength', rotation=0);
+    fig.axes[1].set_ylabel('signal\nstrength', rotation=0);
+    fig.axes[2].set_ylabel('signal\nstrength', rotation=0);
+    fig.axes[3].set_ylabel('signal\nstrength', rotation=0);
 
-fig.axes[0].set_ylabel('signal\nstrength', rotation=0);
-fig.axes[1].set_ylabel('signal\nstrength', rotation=0);
-fig.axes[2].set_ylabel('signal\nstrength', rotation=0);
-fig.axes[3].set_ylabel('signal\nstrength', rotation=0);
+    fig.axes[0].set_xticklabels(['2009','','','2012','','','2015','','','2018'],rotation=0);
+    fig.axes[1].set_xticklabels(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],rotation=0);
+    fig.axes[2].set_xticklabels(['Jan','Mar','May','Jul','Sep','Nov','Jan'],rotation=0);
+    fig.axes[3].set_xticklabels(['0:00','4:00','8:00','12:00','16:00','20:00','0:00'],rotation=0);
 
-fig.axes[0].set_xticklabels(['2009','','','2012','','','2015','','','2018'],rotation=0);
-fig.axes[1].set_xticklabels(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],rotation=0);
-fig.axes[2].set_xticklabels(['Jan','Mar','May','Jul','Sep','Nov','Jan'],rotation=0);
-fig.axes[3].set_xticklabels(['0:00','4:00','8:00','12:00','16:00','20:00','0:00'],rotation=0);
+    fig_save0=fig.axes[0].get_position()
+    fig_save1=fig.axes[1].get_position()
+    fig_save2=fig.axes[2].get_position()
+    fig_save3=fig.axes[3].get_position()
 
-fig_save0=fig.axes[0].get_position()
-fig_save1=fig.axes[1].get_position()
-fig_save2=fig.axes[2].get_position()
-fig_save3=fig.axes[3].get_position()
+    fig.axes[1].set_position(fig_save2)
+    fig.axes[2].set_position(fig_save1)
 
-fig.axes[1].set_position(fig_save2)
-fig.axes[2].set_position(fig_save1)
-
-fig.tight_layout()
+    fig.tight_layout()
+    return fig
 
 fig.savefig('prophet_reformat.png',transparent=True,dpi=400)
-
-
-
-
-fig
-m
-
-
-fig.savefig('prophet_not_so_Bad.png',transparent=True,dpi=400)
-
-
-
-
-
-
-
-
-
-
-
-## This might be helpful in extracting frequency decomposition from Prophet model
-days = (pd.date_range(start='2019-01-01', periods=365) + pd.Timedelta(days=0))
-df_y = m.seasonality_plot_df(days)
-seas = model.predict_seasonal_components(df_y)
-
-## This one, too.
-def my_custom_plot_weekly(m, ax=None, uncertainty=True, weekly_start=0, figsize=(10, 6), name='weekly'):
-    """Plot the weekly component of the forecast.
-    Parameters
-    ----------
-    m: Prophet model.
-    ax: Optional matplotlib Axes to plot on. One will be created if this
-        is not provided.
-    uncertainty: Optional boolean to plot uncertainty intervals, which will
-        only be done if m.uncertainty_samples > 0.
-    weekly_start: Optional int specifying the start day of the weekly
-        seasonality plot. 0 (default) starts the week on Sunday. 1 shifts
-        by 1 day to Monday, and so on.
-    figsize: Optional tuple width, height in inches.
-    name: Name of seasonality component if changed from default 'weekly'.
-    Returns
-    -------
-    a list of matplotlib artists
-    """
-    artists = []
-    if not ax:
-        fig = plt.figure(figsize=figsize)
-        ax = fig.add_subplot(111)
-    # Compute weekly seasonality for a Sun-Sat sequence of dates.
-    days = (pd.date_range(start='2017-01-01', periods=7) +
-            pd.Timedelta(days=weekly_start))
-    # Import this function: seasonality_plot_df
-    df_w = seasonality_plot_df(m, days)
-    seas = m.predict_seasonal_components(df_w)
-    days = days.weekday_name
-    # Return the data here, do not plot.
-    return days, seas
