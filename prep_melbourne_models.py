@@ -227,22 +227,14 @@ def create_comparison_dict():
 
 
 def get_map_data():
-	G = ox.graph_from_bbox(-37.8000,-37.8250,144.9800, 144.9500, network_type='walk')
-	gdf_nodes, gdf_edges = ox.utils_graph.graph_to_gdfs(G, nodes=True, edges=True, node_geometry=True, fill_edge_geometry=True)
-	gdf_edges['centroid_x'] = gdf_edges.apply(lambda r: r.geometry.centroid.x, axis=1)
-	gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=1)
-	return gdf_nodes, gdf_edges
-
-
-gdf_nodes, gdf_edges = get_map_data()
-
-pickle_to_S3('gdf_nodes.p',gdf_nodes)
-pickle_to_S3('gdf_edges.p',gdf_edges)
-
-
-
-nodes = pickle_from_S3('gdf_nodes.p')
-edges = pickle_from_S3('gdf_edges.p')
+    """
+    Example: G, gdf_nodes, gdf_edges = get_map_data()
+    """
+    G = ox.graph_from_bbox(-37.8000,-37.8250,144.9800, 144.9500, network_type='walk')
+    gdf_nodes, gdf_edges = ox.utils_graph.graph_to_gdfs(G, nodes=True, edges=True, node_geometry=True, fill_edge_geometry=True)
+    gdf_edges['centroid_x'] = gdf_edges.apply(lambda r: r.geometry.centroid.x, axis=1)
+    gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=1)
+    return G, gdf_nodes, gdf_edges
 
 
 def single_station_negative_binomial_regression(station_ID, sf_weather):
@@ -349,7 +341,22 @@ def pickle_from_S3(key):
 ################################################################################
 ##### WHERE STUFF RUNS ####
 np.random.RandomState(42);
+
 engine = set_up_database()
+
+
+
+# Get map data
+G, gdf_nodes, gdf_edges = gdf_get_map_data()
+# Push to S3 bucket
+pickle_to_S3('G.p',G)
+pickle_to_S3('gdf_nodes.p',gdf_nodes)
+pickle_to_S3('gdf_edges.p',gdf_edges)
+# Pull from S3 bucket
+G = pickle_from_S3('G.p')
+nodes = pickle_from_S3('gdf_nodes.p')
+edges = pickle_from_S3('gdf_edges.p')
+
 
 df_weather = sql_query_weather()
 df_weather.resample('1H').pad();
