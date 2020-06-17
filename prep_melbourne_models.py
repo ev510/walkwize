@@ -342,11 +342,10 @@ def pickle_from_S3(key):
 ##### WHERE STUFF RUNS ####
 np.random.RandomState(42);
 
+# Set up SQL database
 engine = set_up_database()
 
-
-
-# Get map data
+# Get map data, dimmensions are hardwired
 G, gdf_nodes, gdf_edges = gdf_get_map_data()
 # Push to S3 bucket
 pickle_to_S3('G.p',G)
@@ -551,13 +550,67 @@ data[data[station_ID==22]
 
 
 
-sql_query = """SELECT date_time, hourly_counts FROM data_ped_historic WHERE sensor_id = 22;"""
+sql_query = """SELECT * FROM data_ped_historic WHERE sensor_id = 1 AND year< 2020;"""
 data = pd.read_sql_query(sql_query,engine)
+SID22_data = data.set_index(pd.to_datetime(data['date_time']))
+SID22_data
+fig1 = plt.figure(figsize=(12,15));
 
 
-data = data.set_index(pd.to_datetime(data['date_time']))
+ax[0] = fig1.add_axes([0.1, 0.85, 0.8, 0.15])
+ax[1] = fig1.add_axes([0.1, 0.60, 0.8, 0.15])
+ax[2] = fig1.add_axes([0.1, 0.35, 0.8, 0.15])
+ax[3] = fig1.add_axes([0.1, 0.10, 0.8, 0.15])
 
-data
+ax[0].set_xlabel('Yearly');
+ax[1].set_xlabel('Monthly');
+ax[2].set_xlabel('Weekly');
+ax[3].set_xlabel('Hourly');
+
+x0, y0, width, height]
+
+SID22_data.boxplot(column=['hourly_counts'],by=['year'],ax=ax[0],patch_artist=True)
+SID22_data.boxplot(column=['hourly_counts'],by=['month'],ax=ax[1],patch_artist=True)
+SID22_data.boxplot(column=['hourly_counts'],by=['day'],ax=ax[2],patch_artist=True)
+SID22_data.boxplot(column=['hourly_counts'],by=['time'],ax=ax[3],patch_artist=True)
+
+
+
+
+
+
+ax1.boxplot(data)
+
+
+ax1.set_title('Basic Plot')
+ax1.boxplot(data)
+
+
+
+SID22_data.boxplot(column=['hourly_counts'],by=['year'],ax=ax)
+SID22_data.boxplot(ax=c)
+
+
+
+
+SID22_data.boxplot(column=['hourly_counts'],by=['month'])
+SID22_data.boxplot(column=['hourly_counts'],by=['day'])
+SID22_data.boxplot(column=['hourly_counts'],by=['time'])
+
+plt.plot(SID22_data.groupby('time')['hourly_counts'].mean().to_frame())
+
+
+
+boxplot = df.boxplot(by='X')
+
+
+
+
+
+
+
+
+
 SID = 22
 
 
