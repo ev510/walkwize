@@ -23,59 +23,145 @@ print('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname))
 
 
 # Sample SQL query
-sql_query = """SELECT * FROM data_ped_stations WHERE sensor_id < '10';"""
+sql_query = """SELECT * FROM data_ped_stations WHERE sensor_id = '1';"""
 
 df = pd.read_sql_query(sql_query,engine)
 
 
 
-
+m = Prophet(holidays=holidays)
+m.add_country_holidays(country_name='US')
 ### Prepping for Prophet
-sql_query = """SELECT date_time, hourly_counts FROM data_ped_historic WHERE sensor_id = '43' AND year <'2020' AND year >'1990';"""
+#sql_query = """SELECT date_time, hourly_counts FROM data_ped_historic WHERE sensor_id = '13' AND year <'2020' AND year >'1990';"""
+sql_query = """SELECT date_time, hourly_counts FROM data_ped_historic WHERE sensor_id = '53';"""
+
 df = pd.read_sql_query(sql_query,engine)
-df.date_time.min()
 df.columns= ['ds','y']
 df['y'] = df['y'].replace(',','', regex=True).astype(float)
+df['ds'].max()
+pd.to_datetime(df['ds']).max()
+
 
 ### Running Prophet
-m = Prophet.Prophet()
+m = Prophet.Prophet(seasonality_mode='multiplicative',changepoints=['2020-03-01 00:00:00','2020-04-01 00:00:00','2020-05-01 00:00:00','2020-05-31 00:00:00'])
+
+
 m.fit(df)
+
+
+
+
+changepoints = m.changepoints
+type(changepoints)
+type(changepoints.values[1])
+type(['2020-02-01 00:00:00','2020-03-01 00:00:00','2020-04-01 00:00:00','2020-05-01 00:00:00','2020-05-31 00:00:00'])
+
+
+np.concatenate((changepoints.values,np.array(['2020-02-01 00:00:00','2020-03-01 00:00:00','2020-04-01 00:00:00','2020-05-01 00:00:00','2020-05-31']) ))
+
+np.append(changepoints.values,'2020-01-01 00:00:00')
+changepoints.values.append()
+
+
+
+
+
 future = m.make_future_dataframe(freq='H',periods=2400)
 forecast = m.predict(future)
 
-### Plotting Prophet
-m.plot(forecast);
-fig = m.plot_components(forecast);
-
-
-fig.savefig('prophet2.png',transparent=True,dpi=400)
 
 
 
+## Prophet plot
+figsize=(10,6)
+xlabel='ds'
+ylabel='y'
+plt.style.use('default')
 
-def default_Prophet_plot(arg):
+fig = plt.figure(facecolor='w',figsize=figsize)
 
-    figsize=(10,6)
-    xlabel='ds'
-    ylabel='y'
+#ax = fig.add_suplot(111)
+ax = fig.add_axes([.2, .3, .7, .6]);
+ax.plot(m.history['ds'].dt.to_pydatetime(), m.history['y'], 'k.')
 
-    fig = plt.figure(facecolor='w',figsize=figsize)
+#ax.plot(df['ds'],df['y'],'.')
+ax.plot(future, forecast['yhat'], ls='-', c='#0072B2')
+# if 'cap' in fcst and plot_cap:
+#     ax.plot(future, fcst['cap'], ls='--', c='k')
+# if m.logistic_floor and 'floor' in fcst and plot_cap:
+#     ax.plot(fcst_t, fcst['floor'], ls='--', c='k')
+# if uncertainty:
+#     ax.fill_between(fcst_t, fcst['yhat_lower'], fcst['yhat_upper'],
+                    # color='#0072B2', alpha=0.2)
+ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
+ax.set_xlabel(xlabel)
+ax.set_ylabel(ylabel)
+fig.tight_layout()
+ax.get_xlim()
+ax.set_xlim(737460,737590)
+ax.set_xlim(737460,737470)
 
-    ax = fig.add_suplot(111)
 
-    ax.plot(fcst_t, fcst['yhat'], ls='-', c='#0072B2')
-    if 'cap' in fcst and plot_cap:
-        ax.plot(fcst_t, fcst['cap'], ls='--', c='k')
-    if m.logistic_floor and 'floor' in fcst and plot_cap:
-        ax.plot(fcst_t, fcst['floor'], ls='--', c='k')
-    if uncertainty:
-        ax.fill_between(fcst_t, fcst['yhat_lower'], fcst['yhat_upper'],
-                        color='#0072B2', alpha=0.2)
-    ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    fig.tight_layout()
-    return fig
+fig
+
+
+m.changepoints
+
+
+
+
+
+
+
+### Modify Prophet component plot
+plt.style.use('dark_background')
+plt.style.use('default')
+
+plt.rcParams.update({'font.size': 10})
+
+plt.style.use('default')
+
+fig = m.plot_components(forecast,figsize=(4,6));
+
+for i in range(0,4):
+    fig.axes[i].set_ylim(-1600,1600)
+
+fig.axes[0].set_xlabel('year');
+fig.axes[1].set_xlabel('day of week');
+fig.axes[2].set_xlabel('day of year');
+fig.axes[3].set_xlabel('time of day');
+
+fig.axes[0].set_ylabel('signal\nstrength', rotation=0);
+fig.axes[1].set_ylabel('signal\nstrength', rotation=0);
+fig.axes[2].set_ylabel('signal\nstrength', rotation=0);
+fig.axes[3].set_ylabel('signal\nstrength', rotation=0);
+
+fig.axes[0].set_xticklabels(['2009','','','2012','','','2015','','','2018'],rotation=0);
+fig.axes[1].set_xticklabels(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],rotation=0);
+fig.axes[2].set_xticklabels(['Jan','Mar','May','Jul','Sep','Nov','Jan'],rotation=0);
+fig.axes[3].set_xticklabels(['0:00','4:00','8:00','12:00','16:00','20:00','0:00'],rotation=0);
+
+fig_save0=fig.axes[0].get_position()
+fig_save1=fig.axes[1].get_position()
+fig_save2=fig.axes[2].get_position()
+fig_save3=fig.axes[3].get_position()
+
+fig.axes[1].set_position(fig_save2)
+fig.axes[2].set_position(fig_save1)
+
+fig.tight_layout()
+
+fig.savefig('prophet_reformat.png',transparent=True,dpi=400)
+
+
+
+
+fig
+m
+
+
+fig.savefig('prophet_not_so_Bad.png',transparent=True,dpi=400)
+
 
 
 
