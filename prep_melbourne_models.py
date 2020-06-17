@@ -213,8 +213,6 @@ def scaled_poisson_regression(station_ID, sf_weather):
 
     return df_test, df_train, poisson_training_results, nb2_training_results, y_train, y_test, X_train, X_test
 
-
-
 def create_comparison_dict():
     sql_query = """SELECT * FROM data_ped_historic WHERE year < 2020 AND year > 2014;"""
     ## Query inactive station
@@ -225,7 +223,6 @@ def create_comparison_dict():
     return compare_dict
     #compare['mean']['April', 'Friday', 0]
 
-
 def get_map_data():
     """
     Example: G, gdf_nodes, gdf_edges = get_map_data()
@@ -235,7 +232,6 @@ def get_map_data():
     gdf_edges['centroid_x'] = gdf_edges.apply(lambda r: r.geometry.centroid.x, axis=1)
     gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=1)
     return G, gdf_nodes, gdf_edges
-
 
 def single_station_negative_binomial_regression(station_ID, sf_weather):
     ##---------------- Query SQL database --------------------##
@@ -404,10 +400,7 @@ for SID in station_IDs:
 compare_dict = create_comparison_dict()
 mean_values_from_historic = pd.DataFrame.from_dict({SID: compare['mean'][SID,'June', 'Friday', 1] for SID in station_IDs}, orient='index')
 
-mean _
 
-type(ans)
-#
 ped_current = pd.read_json("https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
 ped_current = ped_current.groupby('sensor_id')['total_of_directions'].sum().to_frame()
 
@@ -436,16 +429,6 @@ stations_summary['poisson_rmse']/stations_summary['mean']
 
 
 
-
-# Save large pickle
-pickle.dump( [df_test, df_train, poisson_training_results, nb2_training_results,y_train, y_test, X_train, X_test], open( "poisson2.p", "wb" ) )
-# LOAD BIG PICKLE
-[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "save.p", "rb" ) )
-
-ped_historic.groupby(by='sensor_id')['date_time'].agg(["min","max"])
-
-
-#### EDA PLOTTING #####
 
 
 print(plt.style.available)
@@ -495,10 +478,10 @@ b
 
 ####
 
-    sql_query = """SELECT * FROM data_ped_historic WHERE sensor_id = 1 AND year > 2019;"""
-    data = pd.read_sql_query(sql_query,engine)
-    data = data.set_index(pd.to_datetime(data['date_time']))
-    data
+sql_query = """SELECT * FROM data_ped_historic WHERE sensor_id = 1 AND year > 2019;"""
+data = pd.read_sql_query(sql_query,engine)
+data = data.set_index(pd.to_datetime(data['date_time']))
+data
 
 
 
@@ -537,68 +520,83 @@ axes.set_xlim(0, 2500);
 d
 
 
-d.savefig('histogram.png', transparent = True,dpi=600)
+d.savefig('histogram.png', transparent = True,dpi=800)
 
 
 
 
 
 
-data
+## HISTOGRAM
+plt.style.use('dark_background')
+plt.rcParams.update({'font.size': 17})
 
-data[data[station_ID==22]
-
-
-
-sql_query = """SELECT * FROM data_ped_historic WHERE sensor_id = 1 AND year< 2020;"""
+sql_query = """SELECT * FROM data_ped_historic WHERE sensor_id = 6 AND year >2013;"""
 data = pd.read_sql_query(sql_query,engine)
 SID22_data = data.set_index(pd.to_datetime(data['date_time']))
-SID22_data
-fig1 = plt.figure(figsize=(12,15));
 
+fig1 = plt.figure(figsize=(8,8),dpi=800);
 
-ax[0] = fig1.add_axes([0.1, 0.85, 0.8, 0.15])
-ax[1] = fig1.add_axes([0.1, 0.60, 0.8, 0.15])
-ax[2] = fig1.add_axes([0.1, 0.35, 0.8, 0.15])
-ax[3] = fig1.add_axes([0.1, 0.10, 0.8, 0.15])
+ax[0] = fig1.add_axes([0.2, 0.85, 0.8, 0.15])
+ax[1] = fig1.add_axes([0.2, 0.60, 0.8, 0.15])
+ax[2] = fig1.add_axes([0.2, 0.35, 0.8, 0.15])
+ax[3] = fig1.add_axes([0.2, 0.10, 0.8, 0.15])
 
-ax[0].set_xlabel('Yearly');
-ax[1].set_xlabel('Monthly');
-ax[2].set_xlabel('Weekly');
-ax[3].set_xlabel('Hourly');
+# ax[0].boxplot(SID22_data['hourly_counts'].groupby(SID22_data.index.year).apply(list));
+# ax[1].boxplot(SID22_data['hourly_counts'].groupby(SID22_data.index.month).apply(list));
+# ax[2].boxplot(SID22_data['hourly_counts'].groupby(SID22_data.index.dayofweek).apply(list));
+# ax[3].boxplot(SID22_data['hourly_counts'].groupby(SID22_data.index.hour).apply(list));
 
-x0, y0, width, height]
+ax[0].plot(SID22_data['hourly_counts'].groupby(SID22_data.index.year).mean(),linewidth=3);
+ax[1].plot(SID22_data['hourly_counts'].groupby(SID22_data.index.month).mean(),linewidth=3);
+ax[2].plot(SID22_data['hourly_counts'].groupby(SID22_data.index.dayofweek).mean(),linewidth=3);
+ax[3].plot(SID22_data['hourly_counts'].groupby(SID22_data.index.hour).mean(),linewidth=3);
 
-SID22_data.boxplot(column=['hourly_counts'],by=['year'],ax=ax[0],patch_artist=True)
-SID22_data.boxplot(column=['hourly_counts'],by=['month'],ax=ax[1],patch_artist=True)
-SID22_data.boxplot(column=['hourly_counts'],by=['day'],ax=ax[2],patch_artist=True)
-SID22_data.boxplot(column=['hourly_counts'],by=['time'],ax=ax[3],patch_artist=True)
+# rotation = 0;
+# ax[0].set_xticklabels(['2014','2015','2016','2017','2018','2019','2020'],rotation=rotation);
+ax[1].set_xticks(range(1,13));
+ax[1].set_xticklabels(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],rotation=rotation);
+ax[2].set_xticklabels(['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'],rotation=rotation);
+# ax[3].set_xticklabels(range(0,23),rotation=rotation);
+ax[3].set_xticks(range(0,24,2));
 
+ax[0].set_xlabel('year');
+ax[1].set_xlabel('month');
+ax[2].set_xlabel('day of week');
+ax[3].set_xlabel('hour of day');
 
-
-
-
-
-ax1.boxplot(data)
-
-
-ax1.set_title('Basic Plot')
-ax1.boxplot(data)
-
-
-
-SID22_data.boxplot(column=['hourly_counts'],by=['year'],ax=ax)
-SID22_data.boxplot(ax=c)
-
+ax[0].set_ylim((800,1700))
+ax[1].set_ylim((800,1700))
+ax[2].set_ylim((800,1700))
+ax[3].set_ylim((-500,5500))
 
 
 
-SID22_data.boxplot(column=['hourly_counts'],by=['month'])
-SID22_data.boxplot(column=['hourly_counts'],by=['day'])
-SID22_data.boxplot(column=['hourly_counts'],by=['time'])
+for i in range(0,4):
+    ax[i].set_ylabel('avg.\nped/hr',labelpad=30,rotation=0)
+    ax[i].set_title('')
 
-plt.plot(SID22_data.groupby('time')['hourly_counts'].mean().to_frame())
+fig1
+fig1.savefig('Station06.png',transparent = True,dpi=800)
 
+
+
+
+for i in range(0,4):
+    ax[i].set_ylim(0,2000)
+    ax[i].set_ylabel('peds\nper\nhour',rotation = 0,labelpad=50)
+ax[3].set_ylim(0,4000)
+
+ax[0].set_xlabel('year')
+ax[1].set_xlabel('month')
+ax[2].set_xlabel('day of week')
+ax[3].set_xlabel('hour of day')
+
+fig
+fig.savefig('overall_trends.png', transparent = True,dpi=400)
+
+
+plt.plot(SID22_data.groupby('month')['hourly_counts'].mean().to_frame())
 
 
 boxplot = df.boxplot(by='X')
