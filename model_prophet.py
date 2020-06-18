@@ -17,98 +17,99 @@ pswd = 'founded1835'
 
 ## 'engine' is a connection to a database
 ## Here, we're using postgres, but sqlalchemy can connect to other things too.
-engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname))
-print('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname))
+engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname));
+print('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname));
 # Replace localhost with IP address if accessing a remote server
 
 
 # Sample SQL query
 sql_query = """SELECT * FROM data_ped_stations WHERE sensor_id = '1';"""
-
 df = pd.read_sql_query(sql_query,engine)
 
 
-
-m = Prophet(holidays=holidays)
-m.add_country_holidays(country_name='US')
-### Prepping for Prophet
-#sql_query = """SELECT date_time, hourly_counts FROM data_ped_historic WHERE sensor_id = '13' AND year <'2020' AND year >'1990';"""
-sql_query = """SELECT date_time, hourly_counts FROM data_ped_historic WHERE sensor_id = '53';"""
-
-df = pd.read_sql_query(sql_query,engine)
-df.columns= ['ds','y']
-df['y'] = df['y'].replace(',','', regex=True).astype(float)
-
-from datetime import date
-import holidays
-
-vic = vic_holidays['2010-01-01':'2022-01-01']
-
-holidays = pd.DataFrame({
-  'holiday': 'Victoria',
-  'ds': pd.to_datetime([obj.strftime('%Y-%m-%d') for obj in vic])})
-
-### Running Prophet
-m = Prophet.Prophet(seasonality_mode='multiplicative', changepoints=cps['ds'])
-m.fit(df)
-future = m.make_future_dataframe(freq='H',periods=2400)
-forecast = m.predict(future)
+## HOLIDAYS ##
+# from datetime import date
+# import holidays
+#
+# vic_holidays = holidays.Australia(prov='Vic')
+# vic = vic_holidays['2010-01-01':'2022-01-01']
+# holidays = pd.DataFrame({
+#   'holiday': 'Victoria',
+#   'ds': pd.to_datetime([obj.strftime('%Y-%m-%d') for obj in vic])})
 
 
-cps = pd.DataFrame(m.changepoints)
-cps = cps.append({'ds':'2020-01-01 00:00:00'}, ignore_index=True);
-cps = cps.append({'ds':'2020-02-01 00:00:00'}, ignore_index=True);
-cps = cps.append({'ds':'2020-03-01 00:00:00'}, ignore_index=True);
-cps = cps.append({'ds':'2020-04-01 00:00:00'}, ignore_index=True);
-cps = cps.append({'ds':'2020-05-01 00:00:00'}, ignore_index=True);
-cps = cps.append({'ds':'2020-05-15 00:00:00'}, ignore_index=True);
+def run_FB_prophet(SID):
+    #sql_query = """SELECT date_time, hourly_counts FROM data_ped_historic WHERE sensor_id = '13' AND year <'2020' AND year >'1990';"""
+    print("Station {}: Query data".format(SID))
+    sql_query = """SELECT date_time, hourly_counts FROM data_ped_historic WHERE sensor_id = '{}';""".format(SID)
+    df = pd.read_sql_query(sql_query,engine)
+    df.columns= ['ds','y']
+    df['y'] = df['y'].replace(',','', regex=True).astype(float)
+    print("Station {}: Initial Prophet model".format(SID))
 
-cps['ds']
+    ### Running Prophet
+    m_default = Prophet.Prophet()
+    m_default.fit(df)
+    #future_default = m.make_future_dataframe(freq='H',periods=2400)
+    #forecast_default = m.predict(future)
 
+    cps_orig = pd.DataFrame(m_default.changepoints)
+    cps = cps_orig.append({'ds':'2020-01-01 00:00:00'}, ignore_index=True);
+    cps = cps.append({'ds':'2020-02-01 00:00:00'}, ignore_index=True);
+    cps = cps.append({'ds':'2020-03-01 00:00:00'}, ignore_index=True);
+    cps = cps.append({'ds':'2020-04-01 00:00:00'}, ignore_index=True);
+    cps = cps.append({'ds':'2020-04-15 00:00:00'}, ignore_index=True);
+    cps = cps.append({'ds':'2020-05-01 00:00:00'}, ignore_index=True);
+    cps = cps.append({'ds':'2020-05-11 00:00:00'}, ignore_index=True);
+    cps = cps.append({'ds':'2020-05-21 00:00:00'}, ignore_index=True);
 
-m.plot_components(forecast);
+    print("Station {}: Modified Prophet model".format(SID))
+    # second prophet model with added change points
+    m = Prophet.Prophet(seasonality_mode='multiplicative',changepoints=cps['ds'])
+    m.fit(df)
 
-## Prophet plot
-figsize=(10,6)
-xlabel='ds'
-ylabel='y'
-plt.style.use('default')
+    future = m.make_future_dataframe(freq='H',periods=2400)
+    forecast = m.predict(future)
 
-fig = plt.figure(facecolor='w',figsize=figsize)
-
-#ax = fig.add_suplot(111)
-ax = fig.add_axes([.2, .3, .7, .6]);
-ax.plot(m.history['ds'].dt.to_pydatetime(), m.history['y'], 'k.')
-
-#ax.plot(df['ds'],df['y'],'.')
-ax.plot(future, forecast['yhat'], ls='-', c='#0072B2')
-# if 'cap' in fcst and plot_cap:
-#     ax.plot(future, fcst['cap'], ls='--', c='k')
-# if m.logistic_floor and 'floor' in fcst and plot_cap:
-#     ax.plot(fcst_t, fcst['floor'], ls='--', c='k')
-# if uncertainty:
-#     ax.fill_between(fcst_t, fcst['yhat_lower'], fcst['yhat_upper'],
-                    # color='#0072B2', alpha=0.2)
-ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
-ax.set_xlabel(xlabel)
-ax.set_ylabel(ylabel)
-fig.tight_layout()
-ax.get_xlim()
-ax.set_xlim(737460,737590)
-ax.set_xlim(737460,737470)
-
-
-fig
-
-
-m.changepoints
+    return m, future, forecast
 
 
 
 
+    fig1 = m.plot_components(forecast);
+    #fig2 = m.plot(forecast)
+def plot_prohet(SID,future,forecast):    ## Prophet plot
+    figsize=(10,6)
+    xlabel='ds'
+    ylabel='y'
+    plt.style.use('default')
 
+    fig3 = plt.figure(facecolor='w',figsize=figsize)
 
-def plot_prophet_components(forecast):
+    #ax = fig.add_suplot(111)
+    ax = fig.add_axes([.2, .3, .7, .6]);
+    ax.plot(m.history['ds'].dt.to_pydatetime(), m.history['y'], 'k.')
+
+    #ax.plot(df['ds'],df['y'],'.')
+    ax.plot(future, forecast['yhat'], ls='-', c='#0072B2')
+    # if 'cap' in fcst and plot_cap:
+        #     ax.plot(future, fcst['cap'], ls='--', c='k')
+        # if m.logistic_floor and 'floor' in fcst and plot_cap:
+        #     ax.plot(fcst_t, fcst['floor'], ls='--', c='k')
+        # if uncertainty:
+        #     ax.fill_between(fcst_t, fcst['yhat_lower'], fcst['yhat_upper'],
+                            # color='#0072B2', alpha=0.2)
+    ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    fig3.tight_layout()
+    ax.get_xlim()
+
+    ax.set_xlim(737460,737590-100)
+    ax.set_xlim(737460,737580)
+
+    return fig_forecast
+def plot_prophet_components(SID,forecast):
     ### Modify Prophet component plot
     plt.style.use('dark_background')
     plt.style.use('default')
@@ -146,6 +147,11 @@ def plot_prophet_components(forecast):
     fig.axes[2].set_position(fig_save1)
 
     fig.tight_layout()
-    return fig
+    fig_components = fig
+    return fig_components
+
+for SID in range(0,1):
+    run_FB_prophet(SID)
+
 
 fig.savefig('prophet_reformat.png',transparent=True,dpi=400)
