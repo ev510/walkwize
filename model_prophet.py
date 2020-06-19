@@ -49,7 +49,7 @@ def query_SQL(SID):
     return df
 
 def run_FB_prophet(df):
-    print("Station {}: Baseline Prophet model".format(SID))
+    print("Station {}: Running baseline Prophet model".format(SID))
     ### Running Prophet
     m_baseline = Prophet.Prophet()
     m_baseline.fit(df)
@@ -57,48 +57,56 @@ def run_FB_prophet(df):
     #forecast_default = m.predict(future)
 
     cps_baseline = pd.DataFrame(m_baseline.changepoints)
-    cps = cps_baseline.append({'ds':'2020-01-01 00:00:00'}, ignore_index=True);
-    cps = cps.append({'ds':'2020-02-01 00:00:00'}, ignore_index=True);
-    cps = cps.append({'ds':'2020-03-01 00:00:00'}, ignore_index=True);
-    cps = cps.append({'ds':'2020-04-01 00:00:00'}, ignore_index=True);
-    cps = cps.append({'ds':'2020-04-15 00:00:00'}, ignore_index=True);
-    cps = cps.append({'ds':'2020-05-01 00:00:00'}, ignore_index=True);
-    cps = cps.append({'ds':'2020-05-11 00:00:00'}, ignore_index=True);
-    cps = cps.append({'ds':'2020-05-21 00:00:00'}, ignore_index=True);
+    cps = cps_baseline.append( [{'ds':'2020-01-01 00:00:00'},
+                                {'ds':'2020-02-01 00:00:00'},
+                                {'ds':'2020-03-01 00:00:00'},
+                                {'ds':'2020-04-01 00:00:00'},
+                                {'ds':'2020-04-15 00:00:00'},
+                                {'ds':'2020-05-01 00:00:00'},
+                                {'ds':'2020-05-11 00:00:00'},
+                                {'ds':'2020-05-21 00:00:00'}], ignore_index=True);
 
-    print("Station {}: Optimized Prophet model".format(SID))
+    print("Station {}: Running optimized Prophet model".format(SID))
     # second prophet model with added change points
     m_optimized = Prophet.Prophet(seasonality_mode='multiplicative',changepoints=cps['ds'])
     m_optimized.fit(df)
     print("Station {}: Done".format(SID))
     return m_baseline, m_optimized
 
-def make_future():
+def make_prophet_future():
     # Creating the next 24 hours of AUSTRALIA time
     now = dt.datetime.utcnow()
     # Round to the next hour
     now -= dt.timedelta(hours = -10-1, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
     # Create next 24 hours
-    future = pd.date_range(now, now+dt.timedelta(hours=24),freq='h').to_frame()
+    prophet_future = pd.date_range(now, now+dt.timedelta(hours=24),freq='h').to_frame()
+    prophet_future = prophet_future.rename(columns={0:'ds'}).reset_index().drop('index',axis=1)
+
+
+
     # Prep for model input
     #future = expand_time_index(future)
     #future['hourly_counts']=0
     #expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
     #y_future, X_future = dmatrices(expr, future, return_type='dataframe')
-    return future
+    return prophet_future
+
+
+type(pd.date_range(now, now+dt.timedelta(hours=24),freq='h'))
 
 def predict_future(m, future):
     #future = m.make_future_dataframe(freq='H',periods=2400)
     forecast = m.predict(future)
+    forecast['yhat'].clip_lower(0)
     return forecast
 
-def plot_prohet(SID,future,forecast):    ## Prophet plot
+def plot_prohet(SID,m,future,forecast):    ## Prophet plot
     figsize=(10,6)
     xlabel='ds'
     ylabel='y'
     plt.style.use('default')
 
-    fig3 = plt.figure(facecolor='w',figsize=figsize)
+    fig = plt.figure(facecolor='w',figsize=figsize)
 
     #ax = fig.add_suplot(111)
     ax = fig.add_axes([.2, .3, .7, .6]);
@@ -116,15 +124,16 @@ def plot_prohet(SID,future,forecast):    ## Prophet plot
     ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    fig3.tight_layout()
+    fig.tight_layout()
     ax.get_xlim()
 
-    ax.set_xlim(737460,737590-100)
-    ax.set_xlim(737460,737580)
-
+    ax.set_xlim(737460,737620)
+    #ax.set_xlim(737460,737580)
+    #ax.set_xlim(737570,737620)
+    fig_forecast = fig
     return fig_forecast
 
-def plot_prophet_components(SID,future,forecast):
+def plot_prophet_components(SID,m,future,forecast):
     ### Modify Prophet component plot
     plt.style.use('dark_background')
     plt.style.use('default')
@@ -135,8 +144,8 @@ def plot_prophet_components(SID,future,forecast):
 
     fig = m.plot_components(forecast,figsize=(4,6));
 
-    for i in range(0,4):
-        fig.axes[i].set_ylim(-1600,1600)
+    # for i in range(0,4):
+    #     fig.axes[i].set_ylim(-1600,1600)
 
     fig.axes[0].set_xlabel('year');
     fig.axes[1].set_xlabel('day of week');
@@ -168,14 +177,23 @@ def plot_prophet_components(SID,future,forecast):
 
 
 ## RUN ALL THE THINGS ##
+forecast = forecast_optimized
+forecast_optimized
 
-    SID =1
-for SID in range(1,2):
-    df = query_SQL(SID)
+#for SID in range(1,2):
 
-    m_baseline, m_optimized = run_FB_prophet(df)
+SID = 1
+df = query_SQL(SID)
+m_baseline, m_optimized = run_FB_prophet(df)
+prophet_future = make_prophet_future()
+prophet_future = m_optimized.make_future_dataframe(freq='H',periods=2400)
+#orecast_baseline['yhat'].clip(lower=0)
+forecast_baseline = m_baseline.predict(prophet_future);
+forecast_optimized = m_optimized.predict(prophet_future);
 
-    fig = plot_prohet(SID,future,forecast)
-    fig.savefig('prophet_{}.png'.format(SID),transparent=True,dpi=400)
-    fig = plot_prophet_components(SID,future,forecast)
+fig = plot_prohet(SID,m_optimized,prophet_future,forecast_optimized)
+
+fig.savefig('prophet_{}.png'.format(SID),transparent=True,dpi=400)
+m_optimized.plot_components(forecast_optimized)
+fig = plot_prophet_components(SID,m_optimized,future,forecast_optimized)
     fig.savefig('prophet_{}_components.png'.format(SID),transparent=True,dpi=400)
