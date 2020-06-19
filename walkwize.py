@@ -197,30 +197,30 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 
 	if s == '':
 		#No address, default to Insight
-		st.write('Source address not found, defaulting...')
-		s = '440 Elizabeth St, Melbourne VIC 3000, Australia'
+		st.write('Source address not found, defaulting to Immigration Museum')
+		s = 'Immigration Museum'
 		start_location = ox.utils_geo.geocode(s)
 	else:
 		try:
 			start_location = ox.utils_geo.geocode(s + ' Melbourne, Australia')
 		except:
 			#No address found, default to Insight
-			st.write('Source address not found, defaulting...')
-			s = '440 Elizabeth St, Melbourne VIC 3000, Australia'
+			st.write('Source address not found, defaulting to Immigration Museum')
+			s = 'Immigration Museum'
 			start_location = ox.utils_geo.geocode(s)
 
 	if e == '':
 		#No address, default to Fenway Park
-		st.write('Destination address not found, defaulting...')
-		e = '1 Spring St, Melbourne VIC 3000, Australia'
+		st.write('Destination address not found, defaulting to State Library')
+		e = 'State Library of Victoria'
 		end_location = ox.utils_geo.geocode(e)
 	else:
 		try:
 			end_location = ox.utils_geo.geocode(e + ' Melbourne, Australia')
 		except:
 			#No address found, default to Insight
-			st.write('Destination address not found, defaulting...')
-			e = '1 Spring St, Melbourne VIC 3000, Australia'
+			st.write('Destination address not found, defaulting to State Library')
+			e = 'State Library of Victoria'
 			end_location = ox.utils_geo.geocode(e)
 
 	#Get coordinates from addresses
