@@ -38,13 +38,6 @@ def query_SQL(SID):
     return df
 
 def run_FB_prophet(df):
-    # print("Station {}: Running baseline Prophet model".format(SID))
-    # ### Running Prophet
-    # m_baseline = Prophet.Prophet()
-    # m_baseline.fit(df)
-    # #future_default = m.make_future_dataframe(freq='H',periods=2400)
-    # #forecast_default = m.predict(future)
-
     # cps_baseline = pd.DataFrame(m_baseline.changepoints)
     # cps = cps_baseline.append( [{'ds':'2020-01-01 00:00:00'},
     #                             {'ds':'2020-02-01 00:00:00'},
@@ -60,7 +53,7 @@ def run_FB_prophet(df):
     #                             #{'ds':'2020-05-21 00:00:00'}
     #                             ], ignore_index=True);
 
-    print("Station {}: Running optimized Prophet model".format(SID))
+    print("Station {}: Generating optimized Prophet model".format(SID))
     # second prophet model with added change points
     m_optimized = Prophet.Prophet(seasonality_mode='multiplicative',changepoint_range=1,changepoint_prior_scale = 1,n_changepoints=100)
     # changepoints=cps['ds'],
@@ -91,7 +84,7 @@ def predict_future(m, future):
     forecast['yhat'].clip_lower(0)
     return forecast
 
-def plot_prohet(SID,m,forecast,test):    ## Prophet plot
+def plot_prohet(SID,m,df_predict):    ## Generate and modify built-in Prophet plot
     plt.style.use('dark_background')
     #plt.style.use('default')
     figsize=(12,4)
@@ -100,38 +93,27 @@ def plot_prohet(SID,m,forecast,test):    ## Prophet plot
 
     #ax = fig.add_suplot(111)
     ax = fig.add_axes([.2, .3, .7, .6]);
-    ax.fill_between(forecast['ds'].dt.to_pydatetime(), forecast['yhat_lower'], forecast['yhat_upper'], alpha=0.2)
-    ax.plot(m.history['ds'].dt.to_pydatetime(), m.history['y'], '.')
-    ax.plot(pd.to_datetime(test['ds']), test['y'], '.')
 
-    #ax.plot(forecast)
-    #ax.plot(df['ds'],df['y'],'.')
-    #ax.plot(future, forecast['yhat'], ls='-', c='#0072B2')
-    # if 'cap' in fcst and plot_cap:
-        #     ax.plot(future, fcst['cap'], ls='--', c='k')
-        # if m.logistic_floor and 'floor' in fcst and plot_cap:
-        #     ax.plot(fcst_t, fcst['floor'], ls='--', c='k')
+    ax.fill_between(df_predict.index, df_predict['yhat_lower'], df_predict['yhat_upper'], alpha=0.2);
+    ax.plot(m.history['ds'].dt.to_pydatetime(), m.history['y'], '.',label='Historic');
+    ax.plot(df_predict.index, df_predict['yhat'], '.',label='Predicted');
+    ax.plot(df_predict.index, df_predict['y'], '.',label='Actual');
 
     #ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
-    ax.set_ylabel('avg.\nped/hr',labelpad=30,rotation=0)
+    ax.set_ylabel('avg.\nped/hr',labelpad=30,rotation=0);
+    ax.set_xlim(pd.to_datetime('2020-02-01'),pd.to_datetime('2020-05-31'));
     fig.tight_layout()
-    ax.get_xlim()
-
-    ax.set_xlim(737460,pd.to_datetime('2020-05-31'))
-    #ax.set_xlim(737460,737580)
-    #ax.set_xlim(737570,737620)
+    ax.legend(fancybox = True, framealpha=0);
     fig_forecast = fig
     return fig_forecast
 
-    fig_forecast
 
-
-def plot_prophet_components(SID,m,forecast,test):
+def plot_prophet_components(SID,m,df_predict):
     ### Modify Prophet component plot
     plt.style.use('dark_background')
     plt.rcParams.update({'font.size': 10})
 
-    fig = m.plot_components(forecast,figsize=(8,10));
+    fig = m.plot_components(df_predict,figsize=(8,10));
 
     # for i in range(0,4):
     #     fig.axes[i].set_ylim(-1600,1600)
@@ -174,73 +156,51 @@ pswd = 'founded1835'
 ## Here, we're using postgres, but sqlalchemy can connect to other things too.
 engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname));
 
-SIDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
-            22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
-            44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
 SIDs = [ 1,  2,  3,  4,  5,  6,  9, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 35, 36, 41, 45, 47, 48, 49, 51, 52, 53]
-SIDs = [ 6]
-SID = 4
+SIDs = [ 1,  2,  3,  4,  5,  6]
+
 
 for SID in SIDs:
+    # Import data
     df = query_SQL(SID)
-
-
-    # Sort (not strictly necessary)
-    # df=df.set_index(pd.to_datetime(df['ds'])).sort_index()
+    # Sort by date, in prepartation for shift
+    df = df.sort_values(by=['ds'])
+    # Calculated shifted value, for comparison later
     df['y_year_prior']=df['y'].shift(periods=52*7*24, fill_value=0)
     df['y_month_prior']=df['y'].shift(periods=28*24, fill_value=0)
-
+    # Split data into test and train
     df_train = df[pd.to_datetime(df['ds'])<pd.to_datetime('2020-05-15')]
-    df_test = df[pd.to_datetime(df['ds'])>=pd.to_datetime('2020-05-15')]
+    df_test = df[(pd.to_datetime(df['ds'])>=pd.to_datetime('2020-05-15')) & (pd.to_datetime(df['ds'])< pd.to_datetime('2020-06-01'))]
 
+    # Generate model
     m_optimized = run_FB_prophet(df_train);
 
-    print("Station {}: Preparing forcasts".format(SID));
-
+    # Generate prediction
+    print("Station {}: Genearting predictions".format(SID));
     df_predict = m_optimized.predict(df_test)
-    df_predict['yhat'].clip(lower=0);
+    df_predict['yhat'] = df_predict['yhat'].clip(lower=0);
 
 
+    # df_comapre, because fbprophet plotting routines require unmodified df_predict
+    df_compare= df_predict.set_index('ds').join(df_test.set_index('ds'))
 
-    df2_predict = df_predict.set_index(df_predict['ds']).sort_index()
-    df2_predict = df2_predict.join(df.set_index(pd.to_datetime(df['ds'])).sort_index(),lsuffix='L')
-
-    idx = (df2_predict.index>pd.to_datetime('2020-05-01')) & (df2_predict.index<pd.to_datetime('2020-06-01'))
-
-
-    abs(df2_predict[idx]['y_month_prior']-df2_predict[idx]['y']).mean()
-
-    abs(df2_predict[idx]['y_year_prior']-df2_predict[idx]['y']).mean()
-
-    abs(df2_predict[idx]['y_hat']-df2_predict[idx]['y']).mean()
-
-
-
-
-
-    idx = (pd.to_datetime(df_predict['ds'])>pd.to_datetime('2020-05-01')) & (pd.to_datetime(df_predict['ds'])<pd.to_datetime('2020-06-01'))
-    (abs(df2_predict[idx]['y_month_prior']-df2_predict[idx]['y'])).mean()
-    (abs(df[idx]['y_year_prior']-df[idx]['y'])).mean()
-    (abs(df_predict['yhat']-df['y'])).mean()
-
-    (abs(df[idx]['y_year_prior']-df[idx]['y'])).mean()
-    (abs(df_predict['yhat']-df['y'])).mean()
-
-
-
-
-
-
-    df2_predict
-    df
-    #m_optimized.plot(df_predict);
+    # Compare to last month
+    MAE_monthly = abs(df_compare['y_month_prior']-df_compare['y']).mean();
+    # Compare to last year
+    MAE_yearly = abs(df_compare['y_year_prior']-df_compare['y']).mean();
+    # Compare to actual #TODO: MAKE SURE SAME DATES
+    MAE_modeled = abs(df_compare['yhat']-df_compare['y']).mean();
 
     print("Station {}: Generating figures".format(SID));
-    fig = plot_prohet(SID,m_optimized,df_predict,df_test)
-    fig.savefig('prophet_{}_changeprior1.png'.format(SID),transparent=True,dpi=400,)
-    #m_optimized.plot_components(df_predict)
-    fig = plot_prophet_components(SID,m_optimized,df_predict,df_test)
-    fig.savefig('prophet_{}_components_changeprior1.png'.format(SID),transparent=True,dpi=400)
-    print("Station {}: Done".format(SID))
+    fig = plot_prophet_components(SID,m_optimized,df_predict);
+    fig.savefig('reports/station_{}_components.png'.format(SID),transparent=True,dpi=400)
 
-    #plt.close('all')
+    fig = plot_prohet(SID,m_optimized,df_compare)
+    fig.savefig('station_{}_prediction.png'.format(SID),transparent=True,dpi=400,)
+
+    print("     MAE yearly: {:.0f}".format(MAE_yearly))
+    print("     MAE monthly: {:.0f}".format(MAE_monthly))
+    print("     MAE modeled: {:.0f}".format(MAE_modeled))
+
+    print("Station {}: Done".format(SID))
+    plt.close('all')
