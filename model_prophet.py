@@ -3,6 +3,7 @@ from sqlalchemy_utils import database_exists, create_database
 import psycopg2
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import plotly
 import fbprophet as Prophet
 import datetime as dt
@@ -39,6 +40,7 @@ def query_SQL(SID):
 
 def run_FB_prophet(df):
     # cps_baseline = pd.DataFrame(m_baseline.changepoints)
+    {'ds':'2020-01-01 00:00:00'}
     # cps = cps_baseline.append( [{'ds':'2020-01-01 00:00:00'},
     #                             {'ds':'2020-02-01 00:00:00'},
     #                             {'ds':'2020-02-15 00:00:00'},
@@ -84,6 +86,7 @@ def predict_future(m, future):
     forecast['yhat'].clip_lower(0)
     return forecast
 
+
 def plot_prohet(SID,m,df_predict):    ## Generate and modify built-in Prophet plot
     plt.style.use('dark_background')
     #plt.style.use('default')
@@ -94,14 +97,19 @@ def plot_prohet(SID,m,df_predict):    ## Generate and modify built-in Prophet pl
     #ax = fig.add_suplot(111)
     ax = fig.add_axes([.2, .3, .7, .6]);
 
-    ax.fill_between(df_predict.index, df_predict['yhat_lower'], df_predict['yhat_upper'], alpha=0.2);
+    ax.fill_between(df_predict.index, df_predict['yhat_lower'], df_predict['yhat_upper'], alpha=0.2,color='lemonchiffon');
     ax.plot(m.history['ds'].dt.to_pydatetime(), m.history['y'], '.',label='Historic');
     ax.plot(df_predict.index, df_predict['yhat'], '.',label='Predicted');
     ax.plot(df_predict.index, df_predict['y'], '.',label='Actual');
 
     #ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
     ax.set_ylabel('avg.\nped/hr',labelpad=30,rotation=0);
-    ax.set_xlim(pd.to_datetime('2020-02-01'),pd.to_datetime('2020-05-31'));
+    #ax.set_xlim(pd.to_datetime('2020-02-01'),pd.to_datetime('2020-05-31'));
+    ax.set_xlim(pd.to_datetime('2020-05-01'),pd.to_datetime('2020-05-31'));
+    myFmt = mdates.DateFormatter('%b %d')
+    #myFmt = mdates.DateFormatter('%b %Y')
+    ax.xaxis.set_major_formatter(myFmt)
+    ax.set_xticks(pd.date_range(start=pd.to_datetime('2020-05-01'),end=pd.to_datetime('2020-05-31'), freq='w'))
     fig.tight_layout()
     ax.legend(fancybox = True, framealpha=0);
     fig_forecast = fig
@@ -157,7 +165,7 @@ pswd = 'founded1835'
 engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname));
 
 SIDs = [ 1,  2,  3,  4,  5,  6,  9, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 35, 36, 41, 45, 47, 48, 49, 51, 52, 53]
-SIDs = [ 1,  2,  3,  4,  5,  6]
+SIDs = [ 41]
 
 
 for SID in SIDs:
@@ -179,6 +187,7 @@ for SID in SIDs:
     print("Station {}: Genearting predictions".format(SID));
     df_predict = m_optimized.predict(df_test)
     df_predict['yhat'] = df_predict['yhat'].clip(lower=0);
+    df_predict['yhat_lower'] = df_predict['yhat_lower'].clip(lower=0);
 
 
     # df_comapre, because fbprophet plotting routines require unmodified df_predict
@@ -196,6 +205,10 @@ for SID in SIDs:
     fig.savefig('reports/station_{}_components.png'.format(SID),transparent=True,dpi=400)
 
     fig = plot_prohet(SID,m_optimized,df_compare)
+    fig.axes[0].set_ylim(0,2000)
+
+
+
     fig.savefig('station_{}_prediction.png'.format(SID),transparent=True,dpi=400,)
 
     print("     MAE yearly: {:.0f}".format(MAE_yearly))
@@ -204,3 +217,6 @@ for SID in SIDs:
 
     print("Station {}: Done".format(SID))
     plt.close('all')
+
+
+m_optimized.changepoints
