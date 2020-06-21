@@ -154,26 +154,26 @@ def pickle_from_S3(key):
     bucket='walkwize'
     data_location = 's3://{}/{}'.format(bucket, key)
     return pd.read_pickle(data_location)
-
-def get_map_bounds(gdf_nodes, route1, route2):
-	#Inputs: node df, and two lists of nodes along path
-	#Returns: Coordinates of smallest rectangle that contains all nodes
-	max_x = -1000
-	min_x = 1000
-	max_y = -1000
-	min_y = 1000
-
-	for i in (route1 + route2):
-		row = gdf_nodes.loc[i]
-		temp_x = row['x']
-		temp_y = row['y']
-
-		max_x = max(temp_x, max_x)
-		min_x = min(temp_x, min_x)
-		max_y = max(temp_y, max_y)
-		min_y = min(temp_y, min_y)
-
-	return min_x, max_x, min_y, max_y
+#
+# def get_map_bounds(gdf_nodes, route1, route2):
+# 	#Inputs: node df, and two lists of nodes along path
+# 	#Returns: Coordinates of smallest rectangle that contains all nodes
+# 	max_x = -1000
+# 	min_x = 1000
+# 	max_y = -1000
+# 	min_y = 1000
+#
+# 	for i in (route1 + route2):
+# 		row = gdf_nodes.loc[i]
+# 		temp_x = row['x']
+# 		temp_y = row['y']
+#
+# 		max_x = max(temp_x, max_x)
+# 		min_x = min(temp_x, min_x)
+# 		max_y = max(temp_y, max_y)
+# 		min_y = min(temp_y, min_y)
+#
+# 	return min_x, max_x, min_y, max_y
 
 def nodes_to_lats_lons(nodes, path_nodes):
 	#Inputs: node df, and list of nodes along path
@@ -266,7 +266,8 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 	short_layer = make_linelayer(short_df, '[160,160,160]')
 
 	#This finds the bounds of the final map to show based on the paths
-	min_x, max_x, min_y, max_y = get_map_bounds(gdf_nodes, shortest_route, optimized_route)
+	#min_x, max_x, min_y, max_y = get_map_bounds(gdf_nodes, shortest_route, optimized_route)
+	min_x, max_x, min_y, max_y = -37.82,-37.805,144.95, 144.97
 
 	#These are lists of origin/destination coords of the paths that the routes take
 	opt_start_lat, opt_start_lon, opt_dest_lat, opt_dest_lon = nodes_to_lats_lons(gdf_nodes, optimized_route)
@@ -290,11 +291,17 @@ def source_to_dest(G, gdf_nodes, gdf_edges, s, e):
 	# type(ped_current)
 	#
 	# gdf_edges
+	# st.pydeck_chart(pdk.Deck(
+	# 	map_style="mapbox://styles/mapbox/light-v9",
+	# 	initial_view_state=pdk.ViewState(latitude = -37.8125, longitude = 144.96, zoom=15),
+	# 	layers=[short_layer, optimized_layer, ped_layer]))
+	#
 	st.pydeck_chart(pdk.Deck(
 		map_style="mapbox://styles/mapbox/light-v9",
-		initial_view_state=pdk.ViewState(latitude = -37.81375, longitude = 144.9669, zoom=13.5),
+		initial_view_state=pdk.ViewState(latitude = -37.8125, longitude = 144.96, zoom=13.5),
 		layers=[short_layer, optimized_layer, ped_layer]))
 
+	min_x, max_x, min_y, max_y = -37.82,-37.805,144.95, 144.97
 	st.write('The path of shortest distance is shown in grey. The path of least contact is shown in blue.')
 	return
 
@@ -351,6 +358,10 @@ gdf_edges = pickle_from_S3('gdf_edges.p')
 
 G = pickle_from_S3('G.p')
 
+fig, ax = ox.plot_graph(G, node_size=0, edge_linewidth=0.25, bgcolor='k')
+
+
+
 ped_stations = get_ped_station_data()
 
 ped_current = get_ped_data_current()
@@ -389,7 +400,7 @@ st.markdown("The current time in Melbourne: {}".format(dt.datetime.utcnow()-dt.t
 if not submit:
 	st.pydeck_chart(pdk.Deck(
 		map_style="mapbox://styles/mapbox/light-v9",
-		initial_view_state=pdk.ViewState(latitude = -37.81375, longitude = 144.9669, zoom=13.5),
+		initial_view_state=pdk.ViewState(latitude = -37.8125, longitude = 144.96, zoom=13.5),
 		layers=[ped_layer]))
 else:
 	with st.spinner('Routing...'):
