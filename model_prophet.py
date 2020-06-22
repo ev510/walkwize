@@ -40,17 +40,9 @@ def query_SQL(SID):
 
 def run_FB_prophet(df):
     # cps_baseline = pd.DataFrame(m_baseline.changepoints)
-    {'ds':'2020-01-01 00:00:00'}
     # cps = cps_baseline.append( [{'ds':'2020-01-01 00:00:00'},
     #                             {'ds':'2020-02-01 00:00:00'},
-    #                             {'ds':'2020-02-15 00:00:00'},
-    #                             {'ds':'2020-03-01 00:00:00'},
-    #                             {'ds':'2020-03-11 00:00:00'},
-    #                             {'ds':'2020-03-21 00:00:00'},
-    #                             {'ds':'2020-04-01 00:00:00'},
-    #                             {'ds':'2020-04-11 00:00:00'},
-    #                             {'ds':'2020-04-21 00:00:00'}
-    #                             #{'ds':'2020-05-01 00:00:00'},
+    #                             {'ds':'2020-02-15 00:00:00'}
     #                             #{'ds':'2020-05-11 00:00:00'},
     #                             #{'ds':'2020-05-21 00:00:00'}
     #                             ], ignore_index=True);
@@ -165,14 +157,27 @@ pswd = 'founded1835'
 engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname));
 
 SIDs = [ 1,  2,  3,  4,  5,  6,  9, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 35, 36, 41, 45, 47, 48, 49, 51, 52, 53]
-SIDs = [ 41]
+SIDs = [ 1, 41]
 
 
+test_models = {}
+predictions = {}
+comparisons = {}
+MAE = pd.DataFrame(columns=['monthly','yearly','modeled'])
+
+SIDs = [  1,  2,  3,  4,  5,  6,  9 ]
+SIDs = [ 19, 20, 21, 22, 23, 24, 26 ]
+SIDs = [ 27, 28, 29, 30, 35, 36, 41, 45, 47, 48, 49, 51, 52, 53 ]
+
+
+### TRAINING AND TESTING MODELS ###
 for SID in SIDs:
     # Import data
     df = query_SQL(SID)
     # Sort by date, in prepartation for shift
-    df = df.sort_values(by=['ds'])
+    df = df.set_index(pd.to_datetime(df['ds']));
+
+    #df = df.sort_values(by=['ds'])
     # Calculated shifted value, for comparison later
     df['y_year_prior']=df['y'].shift(periods=52*7*24, fill_value=0)
     df['y_month_prior']=df['y'].shift(periods=28*24, fill_value=0)
@@ -189,7 +194,6 @@ for SID in SIDs:
     df_predict['yhat'] = df_predict['yhat'].clip(lower=0);
     df_predict['yhat_lower'] = df_predict['yhat_lower'].clip(lower=0);
 
-
     # df_comapre, because fbprophet plotting routines require unmodified df_predict
     df_compare= df_predict.set_index('ds').join(df_test.set_index('ds'))
 
@@ -201,22 +205,66 @@ for SID in SIDs:
     MAE_modeled = abs(df_compare['yhat']-df_compare['y']).mean();
 
     print("Station {}: Generating figures".format(SID));
-    fig = plot_prophet_components(SID,m_optimized,df_predict);
-    fig.savefig('reports/station_{}_components.png'.format(SID),transparent=True,dpi=400)
+    #fig = plot_prophet_components(SID,m_optimized,df_predict);
+    #fig.savefig('reports/station_{}_components.png'.format(SID),transparent=True,dpi=400)
 
     fig = plot_prohet(SID,m_optimized,df_compare)
-    fig.axes[0].set_ylim(0,2000)
-
-
-
-    fig.savefig('station_{}_prediction.png'.format(SID),transparent=True,dpi=400,)
+    fig.axes[0].set_ylim(0,500)
+    fig.savefig('reports/station_{}_prediction.png'.format(SID),transparent=True,dpi=400,)
 
     print("     MAE yearly: {:.0f}".format(MAE_yearly))
     print("     MAE monthly: {:.0f}".format(MAE_monthly))
     print("     MAE modeled: {:.0f}".format(MAE_modeled))
 
+
+    test_models[SID] = m_optimized;
+    predictions[SID] = df_predict;
+    comparisons [SID]= df_compare;
+    MAE.loc[SID]=[MAE_monthly,MAE_yearly,MAE_modeled]
+
     print("Station {}: Done".format(SID))
     plt.close('all')
 
 
-m_optimized.changepoints
+pickle_to_S3('test_models.p',test_models)
+pickle_to_S3('predictions.p',predictions)
+pickle_to_S3('comparisons.p',comparisons)
+pickle_to_S3('MAE.p',MAE)
+
+MAE.monthly.mean()
+MAE.yearly.mean()
+MAE.modeled.mean()
+
+
+
+
+### TRAINING UP MODELS ###
+trained_models = {}
+final_date = []
+SIDs = [ 1,  2,  3,  4,  5,  6,  9, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 35, 36, 41, 45, 47, 48, 49, 51, 52, 53]
+SIDs = [  1,  2,  3,  4,  5,  6,  9 ]
+SIDs = [ 19, 20, 21, 22, 23, 24, 26 ]
+SIDs = [ 27, 28, 29, 30, 35, 36, 41 ]
+SIDs = [ 45, 47, 48, 49, 51, 52, 53 ]
+
+for SID in SIDs:
+    # Import data
+    df = query_SQL(SID)
+    df_train = df.set_index(pd.to_datetime(df['ds']));
+    print(df_train['ds'].iloc[-1])
+
+    # Generate model
+    m_optimized = run_FB_prophet(df_train);
+    trained_models[SID] = m_optimized;
+    print("Station {}: Done".format(SID))
+
+import pickle
+import boto3
+def pickle_to_S3(key, obj):
+    # key='poisson.p', obj=[poisson_training_results]
+    s3_resource = boto3.resource('s3')
+    bucket='walkwize'
+    pickle_byte_obj = pickle.dumps(obj)
+    s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
+
+pickle_to_S3('trained_models.p',trained_models)
