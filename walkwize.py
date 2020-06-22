@@ -52,14 +52,15 @@ def get_trained_models():
 def get_node_df(location):
 	#Inputs: location as tuple of coords (lat, lon)
 	#Returns: 1-line dataframe of location for map layer
-	return pd.DataFrame({'lat':[location[0]], 'lon':[location[1]])
+	return pd.DataFrame({'lat':[location[0]], 'lon':[location[1]]})
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_ped_data_current():
 	ped_current = pd.read_json("https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
 	ped_current = ped_current.groupby('sensor_id')['total_of_directions'].sum().to_frame()
-	ped_current = ped_current.join(ped_stations[['latitude','longitude']])
+	ped_current = ped_stations[['latitude','longitude']].join(ped_current)
 	return ped_current
+
 
 def make_prophet_future():
     # Creating the next 24 hours of AUSTRALIA time
@@ -71,17 +72,14 @@ def make_prophet_future():
     prophet_future = prophet_future.rename(columns={0:'ds'}).reset_index().drop('index',axis=1);
     return prophet_future
 
-
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def predict_ped_rates(trained_models, ped_stations):
 	future = make_prophet_future()
 	for SID in ped_stations.index:
 		future[SID] = trained_models[SID].predict(future)['yhat'].clip(lower=0)
-	predicted = future.transpose()
-	return predicted
-
-
-
+	future=future.drop('ds',axis=1)
+	future=future.transpose().join(ped_stations)
+	return future
 
 #### MAPPING ####
 def make_linelayer(df, color_array):
@@ -125,7 +123,7 @@ def nodes_to_lats_lons(nodes, path_nodes):
 
 	return (source_lats, source_lons, dest_lats, dest_lons)
 
-def convert_locations_to_nodes(G, s, e):
+def calculate_routes(G, gdf_nodes, gdf_edges, s, e, factor):
 	#Inputs: Graph,  source, end
 
 	if s == '':
@@ -163,9 +161,6 @@ def convert_locations_to_nodes(G, s, e):
 	#Snap addresses to graph nodes
 	start_node = ox.get_nearest_node(G, start_coords)
 	end_node = ox.get_nearest_node(G, end_coords)
-	return start_node, end_node
-
-def calculate_routes(G, gdf_nodes, gdf_edges, s, e, factor):
 
 	lengths = {};
 	ped_rates = {};
@@ -180,15 +175,22 @@ def calculate_routes(G, gdf_nodes, gdf_edges, s, e, factor):
 		ped_rates[(u,v,key)] = ped_rate
 
 	optimized = {}
-	for key in lengths.keys():
-		temp = (int(lengths[key])*(int(ped_rates[key]+1))*(1+factor/10))
-		optimized[key] = temp
+	if (factor == 0):
+		for key in lengths.keys():
+			temp = (int(lengths[key]))
+			optimized[key] = temp
+	else:
+		for key in lengths.keys():
+			temp = (int(lengths[key])*(1+int(ped_rates[key])*(factor*factor*factor/1000)))
+			optimized[key] = temp
 	#Generate new edge attribute
 	nx.set_edge_attributes(G, optimized, 'optimized')
 
 	#Path of nodes
 	optimized_route = nx.shortest_path(G, start_node, end_node, weight = 'optimized')
 	shortest_route = nx.shortest_path(G, start_node, end_node, weight = 'length')
+
+
 
 	short_start_lat, short_start_lon, short_dest_lat, short_dest_lon = nodes_to_lats_lons(gdf_nodes, shortest_route)
 	short_df = pd.DataFrame({'startlat':short_start_lat, 'startlon':short_start_lon, 'destlat': short_dest_lat, 'destlon':short_dest_lon})
@@ -207,8 +209,7 @@ def calculate_routes(G, gdf_nodes, gdf_edges, s, e, factor):
 
 	start_node_df = get_node_df(start_location)
 	optimized_layer = make_linelayer(opt_df, '[0,0,179]')
-	#ped_layer = make_pedlayer(ped_current,COLOR_BREWER_RED)
-	ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']],COLOR_BREWER_RED)
+	ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']])
 
 	st.pydeck_chart(pdk.Deck(
 		map_style="mapbox://styles/mapbox/light-v9",
@@ -232,14 +233,9 @@ trained_models = get_trained_models();
 # Grab live conditions
 ped_current = get_ped_data_current()
 
+len(ped_stations)
 # Predict future conditions
 ped_predicted = predict_ped_rates(trained_models, ped_stations);
-
-
-# ped_predicted = get_ped_predicted(poisson_training_results)
-# ped_predicted.index.name = 'sensor_id'
-# ped_predicted = pd.concat([ped_predicted,ped_stations[['latitude','longitude']]],axis=1, join="inner")
-
 
 #### WEB APP ####
 st.sidebar.title("WalkWize");
@@ -249,17 +245,15 @@ st.sidebar.header("Let's plan your walk!");
 input_start = st.sidebar.text_input('Where will you start?');
 input_dest = st.sidebar.text_input('Where are you going?');
 slider_future = st.sidebar.slider('Conditions in __ hours?',0,24)
-slider_factor = st.sidebar.slider('How crowd averse are you? (1-10)'],0,10)
+slider_factor = st.sidebar.slider('How crowd averse are you? (1-10)',0,10)
 
 st.sidebar.header("Location Suggestions:");
 st.sidebar.markdown("*State Library of Victoria, Immigration Museum, Flagstaff Gardens, Vision Apartments*")
 
-#date = st.sidebar.date_input('When you you want to leave?',  max_value=dt.datetime(2020, 12, 31, 0, 0));
-#time = st.sidebar.time_input('What time do you want to leave?', value=None, key=None);
-
 gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
-ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']])
 
+gdf_edges.to_pickle("gdf.p")
+ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']])
 
 submit = st.sidebar.button('Find route', key=1)
 st.markdown("The current time in Melbourne: {}".format(dt.datetime.utcnow()-dt.timedelta(hours = -10)))
@@ -275,10 +269,8 @@ else:
 			gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))),np.array(ped_current['total_of_directions']),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
 
 		else:
-			gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_predicted['latitude'], ped_predicted['longitude']))),np.array(ped_predicted[ped_predicted.columns[slider_future]]),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
+			gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_predicted['latitude'], ped_predicted['longitude']))),np.array(ped_predicted[[slider_future]]),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
 
 		st.markdown(ped_predicted.columns[slider_future])
 		gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
-		start_node, end_node = convert_locations_to_nodes(G, input_start, input_dest)
-
-		source_to_dest(G, gdf_nodes, gdf_edges, start_node, end_node, slider_factor)
+		calculate_routes(G, gdf_nodes, gdf_edges, input_start, input_dest, slider_factor)
