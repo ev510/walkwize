@@ -241,7 +241,7 @@ def calculate_routes(G, gdf_nodes, gdf_edges, s, e, factor):
     min_x, max_x, min_y, max_y = -37.82,-37.805,144.95, 144.97
 
 
-    d = {'Shortest Route': [round(shortest_length/1000,2),round(shortest_people)], 'Optimized Route': [round(optimized_length/1000,2),round(optimized_people)]}
+    d = {'Shortest Route (grey)': [round(shortest_length/1000,2),round(shortest_people)], 'Optimized Route (blue)': [round(optimized_length/1000,2),round(optimized_people)]}
     df = pd.DataFrame(data=d)
     df.rename(index={0:"Distance, in km: "},inplace=True)
     df.rename(index={1:"Total expected pedestrian interactions: "},inplace=True)
@@ -273,7 +273,7 @@ st.sidebar.header("Let's plan your walk!");
 input_start = st.sidebar.text_input('Where will you start?');
 input_dest = st.sidebar.text_input('Where are you going?');
 slider_future = st.sidebar.slider('Conditions in __ hours?',0,24)
-slider_factor = st.sidebar.slider('How crowd averse are you? (1-10)',0,10)
+slider_factor = st.sidebar.slider('How crowd averse are you? (0-10)',0,10)
 
 st.sidebar.header("Location Suggestions:");
 st.sidebar.markdown("*State Library of Victoria, Immigration Museum, Flagstaff Gardens, Vision Apartments*")
