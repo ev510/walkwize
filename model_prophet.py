@@ -55,8 +55,8 @@ def predict_ped_rates(trained_models, ped_stations):
     for SID in ped_stations.index:
         future[SID] = trained_models[SID].predict(future)['yhat'].clip(lower=0)
         print(SID)
-    future=future.drop('ds',axis=1)
-    future=future.transpose().join(ped_stations)
+    #future=future.drop('ds',axis=1)
+    #future=future.transpose().join(ped_stations)
     return future
 
 def plot_prohet(SID,m,df_predict):    ## Generate and modify built-in Prophet plot
@@ -248,12 +248,57 @@ for SID in SIDs:
 pickle_to_S3('trained_models.p',trained_models)
 
 
-
 ##### PREDICTING 2020 MODELS #####
 trained_models = pickle_from_S3('trained_models.p')
 ped_stations = pickle_from_S3('ped_stations.p')
-future = predict_ped_rates(trained_models, ped_stations)
-pickle_to_S3('modeled_future.p',future)
+modeled_future = predict_ped_rates(trained_models, ped_stations)
+pickle_to_S3('modeled_future.p',modeled_future)
+
+
+mf = modeled_future.set_index(pd.to_datetime(modeled_future['ds']))
+
+model_future = pickle_from_S3('modeled_future.p');
+start_date = dt.datetime.now().astimezone(pytz.timezone('Australia/Sydney'));
+
+start_date -= dt.timedelta(hours = 0, minutes = start_date.minute, seconds = start_date.second, microseconds = start_date.microsecond);
+end_date = start_date + dt.timedelta(hours = 26)
+start_date = start_date.replace(tzinfo=None)
+end_date = end_date.replace(tzinfo=None)
+index = ((mf['ds']>start_date) & (mf['ds']<end_date))
+future = mf[index].reset_index(drop=True)
+future=future.drop('ds',axis=1)
+future=future.transpose().join(ped_stations)
+
+future
+
+
+start_date.localize(None)
+
+    # # Create next 24 hours
+    # prophet_future = pd.date_range(now, pd.to_datetime('2020-12-31'),freq='h').to_frame()
+    # prophet_future = prophet_future.rename(columns={0:'ds'}).reset_index().drop('index',axis=1)
+    # # Prep for model input
+    # #future = expand_time_index(future)
+    # #future['hourly_counts']=0
+    # #expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
+    # #y_future, X_future = dmatrices(expr, future, return_type='dataframe')
+
+modeled_future.set_index('ds')
+model_future = pickle_from_S3('modeled_future.p')
+
+
+
+future = make_prophet_future()
+for SID in ped_stations.index:
+    future[SID] = trained_models[SID].predict(future)['yhat'].clip(lower=0)
+
+
+future
+
+future=future.drop('ds',axis=1)
+future=future.transpose().join(ped_stations)
+
+
 
 
 

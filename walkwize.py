@@ -15,6 +15,7 @@ import streamlit as st
 import timeit
 import s3fs
 import boto3
+import pytz
 
 from patsy import dmatrices
 #from sqlalchemy import create_engine
@@ -49,37 +50,43 @@ def get_map_data():
 def get_trained_models():
     return pickle_from_S3('trained_models.p')
 
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+def get_modeled_future():
+    return pickle_from_S3('modeled_future.p')
+
 def get_node_df(location):
     #Inputs: location as tuple of coords (lat, lon)
     #Returns: 1-line dataframe of location for map layer
     return pd.DataFrame({'lat':[location[0]], 'lon':[location[1]]})
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-def get_ped_data_current():
+def get_ped_data_current(ped_stations):
     ped_current = pd.read_json("https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
     ped_current = ped_current.groupby('sensor_id')['total_of_directions'].sum().to_frame()
     ped_current = ped_stations[['latitude','longitude']].join(ped_current)
     return ped_current
 
-
-def make_prophet_future():
-    # Creating the next 24 hours of AUSTRALIA time
-    now = dt.datetime.utcnow()
-    # Round to the next hour
-    now -= dt.timedelta(hours = -10-1, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
-    # Create next 24 hours
-    prophet_future = pd.date_range(now, now+dt.timedelta(hours=24),freq='h').to_frame()
-    prophet_future = prophet_future.rename(columns={0:'ds'}).reset_index().drop('index',axis=1);
-    return prophet_future
-
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-def predict_ped_rates(trained_models, ped_stations):
-    future = make_prophet_future()
-    for SID in ped_stations.index:
-        future[SID] = trained_models[SID].predict(future)['yhat'].clip(lower=0)
+def predict_ped_rates():
+    model_future = pickle_from_S3('modeled_future.p');
+    start_date = dt.datetime.now().astimezone(pytz.timezone('Australia/Sydney'));
+    start_date -= dt.timedelta(hours = 0, minutes = start_date.minute, seconds = start_date.second, microseconds = start_date.microsecond);
+    end_date = start_date + dt.timedelta(hours = 26)
+    start_date = start_date.replace(tzinfo=None)
+    end_date = end_date.replace(tzinfo=None)
+    index = ((model_future['ds']>start_date) & (model_future['ds']<end_date))
+    future = model_future[index].reset_index(drop=True)
     future=future.drop('ds',axis=1)
     future=future.transpose().join(ped_stations)
     return future
+#
+# @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+# def predict_ped_rates(trained_models, ped_stations):
+#     future = make_prophet_future()
+#     for SID in ped_stations.index:
+#         future[SID] = trained_models[SID].predict(future)['yhat'].clip(lower=0)
+#     future=future.drop('ds',axis=1)
+#     future=future.transpose().join(ped_stations)
+#     return future
 
 #### MAPPING ####
 def make_linelayer(df, color_array):
@@ -196,7 +203,7 @@ def calculate_routes(G, gdf_nodes, gdf_edges, s, e, factor):
     shortest_people = 0;
     for i in range(len(shortest_route)-1):
         source, target = shortest_route[i], shortest_route[i+1]
-        shortest_people += lengths[(source,target,0)]*(1/5000)*ped_rates[(source,target,0)]
+        shortest_people += lengths[(source,target,0)]*(1/4000)*ped_rates[(source,target,0)]
         shortest_length += lengths[(source,target,0)]
 
     optimized_length = 0;
@@ -204,7 +211,7 @@ def calculate_routes(G, gdf_nodes, gdf_edges, s, e, factor):
     optimized_people = 0;
     for i in range(len(optimized_route)-1):
         source, target = optimized_route[i], optimized_route[i+1]
-        optimized_people += lengths[(source,target,0)]*(1/5000)*ped_rates[(source,target,0)]
+        optimized_people += lengths[(source,target,0)]*(1/4000)*ped_rates[(source,target,0)]
         optimized_length += lengths[(source,target,0)]
 
     short_start_lat, short_start_lon, short_dest_lat, short_dest_lon = nodes_to_lats_lons(gdf_nodes, shortest_route)
@@ -225,13 +232,13 @@ def calculate_routes(G, gdf_nodes, gdf_edges, s, e, factor):
     optimized_layer = make_linelayer(opt_df, '[0,0,179]')
     ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']])
 
+
     st.pydeck_chart(pdk.Deck(
         map_style="mapbox://styles/mapbox/light-v9",
         initial_view_state=pdk.ViewState(latitude = -37.8125, longitude = 144.96, zoom=13.5),
         layers=[short_layer, optimized_layer, ped_layer]))
 
     min_x, max_x, min_y, max_y = -37.82,-37.805,144.95, 144.97
-
 
 
     d = {'Shortest Route': [round(shortest_length/1000,2),round(shortest_people)], 'Optimized Route': [round(optimized_length/1000,2),round(optimized_people)]}
@@ -249,14 +256,14 @@ ped_stations = get_ped_stations();
 gdf_nodes = get_gdf_nodes();
 gdf_edges = get_gdf_edges();
 G = get_map_data();
-trained_models = get_trained_models();
+#trained_models = get_trained_models();
+
 
 # Grab live conditions
-ped_current = get_ped_data_current()
+ped_current = get_ped_data_current(ped_stations)
 
-len(ped_stations)
 # Predict future conditions
-ped_predicted = predict_ped_rates(trained_models, ped_stations);
+ped_predicted = predict_ped_rates();
 
 #### WEB APP ####
 st.sidebar.title("WalkWize");
@@ -283,6 +290,7 @@ string = (dt.datetime.utcnow()-dt.timedelta(hours = -10)).strftime("%Y-%m-%d %H:
 st.markdown("The current time in Melbourne: " + string)
 
 if not submit:
+    st.write('test')
     st.pydeck_chart(pdk.Deck(
         map_style="mapbox://styles/mapbox/light-v9",
         initial_view_state=pdk.ViewState(latitude = -37.8125, longitude = 144.96, zoom=13.5),
