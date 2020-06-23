@@ -9,3 +9,4 @@ psycopg2
 matplotlib
 boto3
 s3fs
+fbprophet
