@@ -290,7 +290,6 @@ string = (dt.datetime.utcnow()-dt.timedelta(hours = -10)).strftime("%Y-%m-%d %H:
 st.markdown("The current time in Melbourne: " + string)
 
 if not submit:
-    st.write('test')
     st.pydeck_chart(pdk.Deck(
         map_style="mapbox://styles/mapbox/light-v9",
         initial_view_state=pdk.ViewState(latitude = -37.8125, longitude = 144.96, zoom=13.5),
