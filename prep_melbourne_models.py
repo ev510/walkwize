@@ -1,8 +1,13 @@
 # %% codecell
 import numpy as np
 import pandas as pd
+import osmnx as ox
+
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+
+import datetime as dt
+import pickle
 
 from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
@@ -12,43 +17,35 @@ from patsy import dmatrices
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
-import datetime as dt
-
-import pickle
-
-#pushing to S3
-import boto3
-# pulling from S3 (idealy they two would use same library)
-import s3fs
-
-import datetime as dt
-import matplotlib.pyplot as plt
-import networkx as nx
-import numpy as np
-import osmnx as ox
-import pandas as pd
-import pickle
-import psycopg2
-import pydeck as pdk
 import scipy
 import scipy.interpolate as interpolate
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-import streamlit as st
-import timeit
-import s3fs
+
+import pydeck as pdk
+
+# pushing to S3
 import boto3
+# pulling from S3 (idealy they two would use same library)
+import s3fs
 
 
 
 
-# %% codecell
+
+
+
+import os
+
+
 
 ################################################################################
 def set_up_database():
-    dbname = 'melbourne_db'
-    username = 'emilyvoytek'
-    pswd = 'founded1835'
+    # .env file
+    dbname='melbourne_db'
+    username='emilyvoytek'
+    pswd='founded1835'
+
 
     ## 'engine' is a connection to a database
     engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname))
@@ -109,8 +106,13 @@ def make_table_ped_station():
 
     ped_stations.set_index("sensor_id",inplace=True)
     ped_stations = ped_stations.sort_index()
+
+
     ped_stations.to_sql('data_ped_stations', engine, if_exists='replace')
     return ped_stations
+
+
+
 
 ################################################################################
 def sql_query_weather():
@@ -156,9 +158,16 @@ def expand_time_index(df):
 ###### Identify stations to model #######
 def identify_useable_stations(ped_stations):
     # Active stations, installed before Jan 01, 2018
-    ped_stations_to_use = ped_stations[(ped_stations.installation_date<dt.datetime(2018,1,1,0,0,0)) & (ped_stations['status']=='A')].index
+    ped_stations_to_use = ped_stations[
+        (ped_stations.installation_date<dt.datetime(2018,1,1,0,0,0))
+        & (ped_stations['status']=='A')
+        & (ped_stations['latitude'] > -37.825)
+        & (ped_stations['latitude'] < -37.805)
+        & (ped_stations['longitude'] > 144.95)
+        & (ped_stations['longitude'] < 144.97)].index
     return ped_stations_to_use
 
+    len(ped_stations_to_use)
 
 def scaled_poisson_regression(station_ID, sf_weather):
     ##---------------- Query SQL database --------------------##
@@ -227,7 +236,11 @@ def get_map_data():
     """
     Example: G, gdf_nodes, gdf_edges = get_map_data()
     """
-    G = ox.graph_from_bbox(-37.8000,-37.8250,144.9800, 144.9500, network_type='walk')
+
+    G = ox.graph_from_bbox(-37.82,-37.805,144.95, 144.97, network_type='walk')
+    #fig, ax = ox.plot_graph(G, node_zorder=2, node_color='w', bgcolor='k')
+
+
     gdf_nodes, gdf_edges = ox.utils_graph.graph_to_gdfs(G, nodes=True, edges=True, node_geometry=True, fill_edge_geometry=True)
     gdf_edges['centroid_x'] = gdf_edges.apply(lambda r: r.geometry.centroid.x, axis=1)
     gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=1)
@@ -330,8 +343,6 @@ def pickle_from_S3(key):
     data_location = 's3://{}/{}'.format(bucket, key)
     return pd.read_pickle(data_location)
 
-
-
 ################################################################################
 ################################################################################
 ################################################################################
@@ -342,7 +353,7 @@ np.random.RandomState(42);
 engine = set_up_database()
 
 # Get map data, dimmensions are hardwired
-G, gdf_nodes, gdf_edges = gdf_get_map_data()
+G, gdf_nodes, gdf_edges = get_map_data()
 # Push to S3 bucket
 pickle_to_S3('G.p',G)
 pickle_to_S3('gdf_nodes.p',gdf_nodes)
@@ -358,15 +369,24 @@ df_weather.resample('1H').pad();
 
 ped_stations = make_table_ped_station();
 index = identify_useable_stations(ped_stations)
+ped_station = ped_stations.loc[index]
+pickle_to_S3('ped_stations.p',ped_station)
+
+
+ps = pickle_from_S3('ped_stations.p')
+
+
+index
 # SMALL SUBSET
 station_IDs= range(20,23)
 # FULL SET
+#TODO:UPDATE!
 station_IDs = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
              22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
              44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
 
 # For now, I will save all model results.
-poisson_training_results = {}
+trained_models = {}
 poisson_training_results_a = {}
 poisson_training_results_b = {}
 
@@ -450,7 +470,7 @@ axes.plot(y_train[SID],'.',label='training data');
 axes.plot(y_test[SID],'.',label='testing data');
 axes.plot(poisson_predictions,'.',label='poisson prediction');
 #axes.plot(nb2_predictions,'.',label='nb2');
-axes.set_xlim(737014, 737018);
+axes.m(737014, 737018);
 axes.legend(fancybox = True, framealpha=0);
 myFmt = mdates.DateFormatter('%Y-%m-%d')
 axes.xaxis.set_major_formatter(myFmt)
@@ -608,22 +628,28 @@ boxplot = df.boxplot(by='X')
 
 
 
-
 SID = 22
 
 
 ## PLOT OF COVID TREND
+plt.style.use('dark_background')
+plt.rcParams.update({'font.size': 20})
+sql_query = """SELECT * FROM data_ped_historic WHERE sensor_id = 22 AND year > 2019;"""
+data = pd.read_sql_query(sql_query,engine)
+data = data.set_index(pd.to_datetime(data['date_time']))
+
 
 # Sample time-series data. Consider highlighting zero-inflatedness.
 e = plt.figure(figsize=(12,4));
 axes = e.add_axes([.2, .3, .7, .6]);
-axes.plot(data['hourly_counts'],'.', label='historic data');
+axes.plot(data['hourly_counts'],'.');
 myFmt = mdates.DateFormatter('%b %Y')
 axes.xaxis.set_major_formatter(myFmt)
 e.autofmt_xdate()
 axes.set_ylabel('hourly \ncount',rotation=0,labelpad=50)
 axes.set_title('Station 22: Flinders St & Elizabeth St')
 axes.get_xlim()
+axes.set_ylim((-250,6000))
 
 #
 ped_current = pd.read_json("https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
@@ -632,8 +658,27 @@ ped_current = ped_current.join(ped_stations[['latitude','longitude']])
 #
 axes.set_xlim(dt.datetime(year=2020,month=1,day=1),dt.datetime(year=2020,month=6,day=30))
 now = dt.datetime.utcnow()- dt.timedelta(hours = -10)
-axes.plot(now,ped_current[ped_current.index==22]['total_of_directions'],'.');
+#axes.plot(now,ped_current[ped_current.index==22]['total_of_directions'],'.');
 axes.legend(fancybox = True, framealpha=0);
 
 e.savefig('2020_trend.png', transparent = True,dpi=600)
 e
+
+
+
+
+poisson_training_results = {}
+poisson_training_results_a = {}
+poisson_training_results_b = {}
+
+nb2_training_results = {}
+df_test = {}
+df_train = {}
+y_train = {}
+y_test = {}
+X_train = {}
+X_test = {}
+
+
+for SID in station_IDs:
+    df_test[SID], df_train[SID], poisson_training_results[SID], nb2_training_results[SID],y_train[SID], y_test[SID], X_train[SID], X_test[SID] = single_station_negative_binomial_regression(SID, df_weather)
