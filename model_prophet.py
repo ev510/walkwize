@@ -9,25 +9,8 @@ import fbprophet as Prophet
 import datetime as dt
 import numpy as np
 
-plt.rcParams['font.size']=14
-
-
-
-# Replace localhost with IP address if accessing a remote server
-
-
-# Sample SQL query
-
-## HOLIDAYS ##
-# from datetime import date
-# import holidays
-#
-# vic_holidays = holidays.Australia(prov='Vic')
-# vic = vic_holidays['2010-01-01':'2022-01-01']
-# holidays = pd.DataFrame({
-#   'holiday': 'Victoria',
-#   'ds': pd.to_datetime([obj.strftime('%Y-%m-%d') for obj in vic])})
-
+import pickle
+import boto3
 
 def query_SQL(SID):
     print("Station {}: Query data".format(SID))
@@ -39,14 +22,6 @@ def query_SQL(SID):
     return df
 
 def run_FB_prophet(df):
-    # cps_baseline = pd.DataFrame(m_baseline.changepoints)
-    # cps = cps_baseline.append( [{'ds':'2020-01-01 00:00:00'},
-    #                             {'ds':'2020-02-01 00:00:00'},
-    #                             {'ds':'2020-02-15 00:00:00'}
-    #                             #{'ds':'2020-05-11 00:00:00'},
-    #                             #{'ds':'2020-05-21 00:00:00'}
-    #                             ], ignore_index=True);
-
     print("Station {}: Generating optimized Prophet model".format(SID))
     # second prophet model with added change points
     m_optimized = Prophet.Prophet(seasonality_mode='multiplicative',changepoint_range=1,changepoint_prior_scale = 1,n_changepoints=100)
@@ -54,17 +29,14 @@ def run_FB_prophet(df):
     m_optimized.fit(df)
     return m_optimized
 
-def make_prophet_future():
+def make_prophet_future_2020():
     # Creating the next 24 hours of AUSTRALIA time
     now = dt.datetime.utcnow()
     # Round to the next hour
     now -= dt.timedelta(hours = -10-1, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
     # Create next 24 hours
-    prophet_future = pd.date_range(now, now+dt.timedelta(hours=24),freq='h').to_frame()
+    prophet_future = pd.date_range(now, pd.to_datetime('2020-12-31'),freq='h').to_frame()
     prophet_future = prophet_future.rename(columns={0:'ds'}).reset_index().drop('index',axis=1)
-
-
-
     # Prep for model input
     #future = expand_time_index(future)
     #future['hourly_counts']=0
@@ -78,16 +50,25 @@ def predict_future(m, future):
     forecast['yhat'].clip_lower(0)
     return forecast
 
+def predict_ped_rates(trained_models, ped_stations):
+    future = make_prophet_future_2020()
+    for SID in ped_stations.index:
+        future[SID] = trained_models[SID].predict(future)['yhat'].clip(lower=0)
+        print(SID)
+    future=future.drop('ds',axis=1)
+    future=future.transpose().join(ped_stations)
+    return future
 
 def plot_prohet(SID,m,df_predict):    ## Generate and modify built-in Prophet plot
     plt.style.use('dark_background')
     #plt.style.use('default')
     figsize=(12,4)
+    figsize=(6,4)
     plt.rcParams.update({'font.size': 20})
     fig = plt.figure(figsize=figsize);
 
     #ax = fig.add_suplot(111)
-    ax = fig.add_axes([.2, .3, .7, .6]);
+    ax = fig.add_axes([.3, .3, .7, .6]);
 
     ax.fill_between(df_predict.index, df_predict['yhat_lower'], df_predict['yhat_upper'], alpha=0.2,color='lemonchiffon');
     ax.plot(m.history['ds'].dt.to_pydatetime(), m.history['y'], '.',label='Historic');
@@ -98,15 +79,20 @@ def plot_prohet(SID,m,df_predict):    ## Generate and modify built-in Prophet pl
     ax.set_ylabel('avg.\nped/hr',labelpad=30,rotation=0);
     #ax.set_xlim(pd.to_datetime('2020-02-01'),pd.to_datetime('2020-05-31'));
     ax.set_xlim(pd.to_datetime('2020-05-01'),pd.to_datetime('2020-05-31'));
+    ax.set_xlim(pd.to_datetime('2020-05-08'),pd.to_datetime('2020-05-20'));
     myFmt = mdates.DateFormatter('%b %d')
     #myFmt = mdates.DateFormatter('%b %Y')
     ax.xaxis.set_major_formatter(myFmt)
-    ax.set_xticks(pd.date_range(start=pd.to_datetime('2020-05-01'),end=pd.to_datetime('2020-05-31'), freq='w'))
+    #ax.set_xticks(pd.date_range(start=pd.to_datetime('2020-05-01'),end=pd.to_datetime('2020-05-31'), freq='w'))
+    ax.set_xticks(pd.date_range(start=pd.to_datetime('2020-05-08'),end=pd.to_datetime('2020-05-20'), freq='w'))
+    ax.set_ylim(0,250)
+
+    ax.legend(fancybox = True, framealpha=0,bbox_to_anchor=(1.4,0,.2,1));
     fig.tight_layout()
-    ax.legend(fancybox = True, framealpha=0);
     fig_forecast = fig
     return fig_forecast
 
+    fig = plot_prohet(SID,m_optimized,df_compare)
 
 def plot_prophet_components(SID,m,df_predict):
     ### Modify Prophet component plot
@@ -114,9 +100,6 @@ def plot_prophet_components(SID,m,df_predict):
     plt.rcParams.update({'font.size': 10})
 
     fig = m.plot_components(df_predict,figsize=(8,10));
-
-    # for i in range(0,4):
-    #     fig.axes[i].set_ylim(-1600,1600)
 
     fig.axes[0].set_xlabel('year');
     fig.axes[1].set_xlabel('day of week');
@@ -145,32 +128,44 @@ def plot_prophet_components(SID,m,df_predict):
     fig_components = fig
     return fig_components
 
-############### RUN ALL THE THINGS ###############
+def pickle_to_S3(key, obj):
+    # key='poisson.p', obj=[poisson_training_results]
+    s3_resource = boto3.resource('s3')
+    bucket='walkwize'
+    pickle_byte_obj = pickle.dumps(obj)
+    s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
 
+def pickle_from_S3(key):
+    # key = 'poisson.p'
+    bucket='walkwize'
+    data_location = 's3://{}/{}'.format(bucket, key)
+    return pd.read_pickle(data_location)
+
+
+
+
+##### SET UP WORKSPACE #####
 dbname = 'melbourne_db'
 username = 'emilyvoytek'
 pswd = 'founded1835'
-
+plt.rcParams['font.size']=14
 
 ## 'engine' is a connection to a database
 ## Here, we're using postgres, but sqlalchemy can connect to other things too.
 engine = create_engine('postgresql://%s:%s@localhost/%s'%(username,pswd,dbname));
 
-SIDs = [ 1,  2,  3,  4,  5,  6,  9, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 35, 36, 41, 45, 47, 48, 49, 51, 52, 53]
-SIDs = [ 1, 41]
 
-
+##### TRAINING AND TESTING MODELS ON MAY 2020 #####
 test_models = {}
 predictions = {}
 comparisons = {}
 MAE = pd.DataFrame(columns=['monthly','yearly','modeled'])
-
+SIDs = [  1,  2,  3,  4,  5,  6,  9, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 35, 36, 41, 45, 47, 48, 49, 51, 52, 53]
 SIDs = [  1,  2,  3,  4,  5,  6,  9 ]
 SIDs = [ 19, 20, 21, 22, 23, 24, 26 ]
-SIDs = [ 27, 28, 29, 30, 35, 36, 41, 45, 47, 48, 49, 51, 52, 53 ]
+SIDs = [ 27, 28, 29, 30, 35, 36, 41 ]
+SIDs = [ 45, 47, 48, 49, 51, 52, 53 ]
 
-
-### TRAINING AND TESTING MODELS ###
 for SID in SIDs:
     # Import data
     df = query_SQL(SID)
@@ -209,8 +204,7 @@ for SID in SIDs:
     #fig.savefig('reports/station_{}_components.png'.format(SID),transparent=True,dpi=400)
 
     fig = plot_prohet(SID,m_optimized,df_compare)
-    fig.axes[0].set_ylim(0,500)
-    fig.savefig('reports/station_{}_prediction.png'.format(SID),transparent=True,dpi=400,)
+    fig.savefig('pipeline_example.png'.format(SID),transparent=True,dpi=400,pad_inches=1.2,bbox_inches='tight')
 
     print("     MAE yearly: {:.0f}".format(MAE_yearly))
     print("     MAE monthly: {:.0f}".format(MAE_monthly))
@@ -225,27 +219,20 @@ for SID in SIDs:
     print("Station {}: Done".format(SID))
     plt.close('all')
 
-
 pickle_to_S3('test_models.p',test_models)
 pickle_to_S3('predictions.p',predictions)
 pickle_to_S3('comparisons.p',comparisons)
 pickle_to_S3('MAE.p',MAE)
 
-MAE.monthly.mean()
-MAE.yearly.mean()
-MAE.modeled.mean()
 
 
-
-
-### TRAINING UP MODELS ###
+##### TRAIN THROUGH MOST CURRENT #####
 trained_models = {}
-final_date = []
 SIDs = [ 1,  2,  3,  4,  5,  6,  9, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 35, 36, 41, 45, 47, 48, 49, 51, 52, 53]
-SIDs = [  1,  2,  3,  4,  5,  6,  9 ]
-SIDs = [ 19, 20, 21, 22, 23, 24, 26 ]
-SIDs = [ 27, 28, 29, 30, 35, 36, 41 ]
-SIDs = [ 45, 47, 48, 49, 51, 52, 53 ]
+# SIDs = [  1,  2,  3,  4,  5,  6,  9 ]
+# SIDs = [ 19, 20, 21, 22, 23, 24, 26 ]
+# SIDs = [ 27, 28, 29, 30, 35, 36, 41 ]
+# SIDs = [ 45, 47, 48, 49, 51, 52, 53 ]
 
 for SID in SIDs:
     # Import data
@@ -258,13 +245,20 @@ for SID in SIDs:
     trained_models[SID] = m_optimized;
     print("Station {}: Done".format(SID))
 
-import pickle
-import boto3
-def pickle_to_S3(key, obj):
-    # key='poisson.p', obj=[poisson_training_results]
-    s3_resource = boto3.resource('s3')
-    bucket='walkwize'
-    pickle_byte_obj = pickle.dumps(obj)
-    s3_resource.Object(bucket,key).put(Body=pickle_byte_obj)
-
 pickle_to_S3('trained_models.p',trained_models)
+
+
+
+##### PREDICTING 2020 MODELS #####
+trained_models = pickle_from_S3('trained_models.p')
+ped_stations = pickle_from_S3('ped_stations.p')
+future = predict_ped_rates(trained_models, ped_stations)
+pickle_to_S3('modeled_future.p',future)
+
+
+
+##### GET STUFF #####
+MAE = pickle_from_S3('MAE.p')
+MAE.monthly.mean()
+MAE.yearly.mean()
+MAE.modeled.mean()
