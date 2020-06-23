@@ -72,6 +72,7 @@ def make_prophet_future():
     prophet_future = prophet_future.rename(columns={0:'ds'}).reset_index().drop('index',axis=1);
     return prophet_future
 
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def predict_ped_rates(trained_models, ped_stations):
     future = make_prophet_future()
     for SID in ped_stations.index:
