@@ -33,10 +33,53 @@ def get_node_df(location):
 	return pd.DataFrame({'lat':[location[0]], 'lon':[location[1]], 'icon_data': [icon_data]})
 
 def pickle_from_S3(key):
-    # key = 'poisson.p'
+    # example: key = 'poisson.p'
     bucket='walkwize'
     data_location = 's3://{}/{}'.format(bucket, key)
     return pd.read_pickle(data_location)
+
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+def get_ped_stations():
+    # ped_stations = pd.read_json("https://data.melbourne.vic.gov.au/resource/h57g-5234.json")
+    # ped_stations.set_index("sensor_id",inplace=True)
+    return pickle_from_S3('ped_stations.p')
+
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+def get_gdf_nodes():
+    return pickle_from_S3('gdf_nodes.p')
+
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+def get_gdf_edges():
+    return pickle_from_S3('gdf_edges.p')
+
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+def get_map_data():
+    return pickle_from_S3('G.p')
+
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+def get_trained_models():
+    return pickle_from_S3('trained_models.p')
+
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
+def get_modeled_future():
+    return pickle_from_S3('modeled_future.p')
+
+
+
+
+def make_future():
+    # Creating the next 24 hours of AUSTRALIA time
+    now = dt.datetime.utcnow()
+    # Round to the next hour
+    now -= dt.timedelta(hours = -10-1, minutes = now.minute, seconds = now.second, microseconds = now.microsecond)
+    # Create next 24 hours
+    future = pd.date_range(now, now+dt.timedelta(hours=24),freq='h').to_frame()
+    # Prep for model input
+    future = expand_time_index(future)
+    future['hourly_counts']=0
+    expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
+    y_future, X_future = dmatrices(expr, future, return_type='dataframe')
+    return y_future, X_future
 
 ##### MODELING ####
 def expand_time_index(df):
