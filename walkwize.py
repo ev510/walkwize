@@ -17,10 +17,6 @@ import boto3
 import pytz
 
 from patsy import dmatrices
-#from sqlalchemy import create_engine
-#from sqlalchemy_utils import database_exists, create_database
-
-
 ## Credit to Dave Montiero of Doggo
 
 def get_node_df(location):
@@ -36,6 +32,11 @@ def get_node_df(location):
 
 	return pd.DataFrame({'lat':[location[0]], 'lon':[location[1]], 'icon_data': [icon_data]})
 
+def pickle_from_S3(key):
+    # key = 'poisson.p'
+    bucket='walkwize'
+    data_location = 's3://{}/{}'.format(bucket, key)
+    return pd.read_pickle(data_location)
 
 ##### MODELING ####
 def expand_time_index(df):
