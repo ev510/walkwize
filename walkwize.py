@@ -295,8 +295,8 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
     optimized_route = nx.shortest_path(G, start_node, end_node, weight = 'optimized')
     shortest_route = nx.shortest_path(G, start_node, end_node, weight = 'length')
     min_dist = nx.shortest_path_length(G, start_node, end_node, weight = 'length')
-
-    shortest_route
+    #optimized_route
+    #shortest_route
     shortest_length = 0;
     shortest_time = 0;
     shortest_people = 0;
@@ -311,7 +311,7 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
     for i in range(len(optimized_route)-1):
         source, target = optimized_route[i], optimized_route[i+1]
     # #     optimized_people += lengths[(source,target,0)]*(1/4000)*ped_rates[(source,target,0)]
-        optimized_length += lengths[(source,target,0)]
+    optimized_length += lengths[(source,target,0)]
 
     short_start_lat, short_start_lon, short_dest_lat, short_dest_lon = nodes_to_lats_lons(gdf_nodes, shortest_route)
     short_df = pd.DataFrame({'startlat':short_start_lat, 'startlon':short_start_lon, 'destlat': short_dest_lat, 'destlon':short_dest_lon})
@@ -331,6 +331,8 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
     # optimized_layer = make_linelayer(opt_df, '[0,0,179]')
     #
     #
+
+
     d = {'Shortest Route (grey)': [round(shortest_length/1000,2),round(shortest_people)]}
 
     #d = {'Shortest Route (grey)': [round(shortest_length/1000,2),round(shortest_people)], 'Optimized Route (blue)': [round(optimized_length/1000,2),round(optimized_people)]}
