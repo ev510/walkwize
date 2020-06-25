@@ -287,6 +287,7 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
         for key in lengths.keys():
             temp = (int(lengths[key])*(1+int(ped_rates[key])*(factor*factor*factor/1000)))
             optimized[key] = temp
+
     #Generate new edge attribute
     nx.set_edge_attributes(G, optimized, 'optimized')
 
@@ -295,12 +296,13 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
     shortest_route = nx.shortest_path(G, start_node, end_node, weight = 'length')
     min_dist = nx.shortest_path_length(G, start_node, end_node, weight = 'length')
 
+    shortest_route
     shortest_length = 0;
     shortest_time = 0;
     shortest_people = 0;
     for i in range(len(shortest_route)-1):
         source, target = shortest_route[i], shortest_route[i+1]
-        shortest_people += lengths[(source,target,0)]*(1/4000)*ped_rates[(source,target,0)]
+         # #shortest_people += lengths[(source,target,0)]*(1/4000)*ped_rates[(source,target,0)]
         shortest_length += lengths[(source,target,0)]
 
     optimized_length = 0;
@@ -308,7 +310,7 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
     optimized_people = 0;
     for i in range(len(optimized_route)-1):
         source, target = optimized_route[i], optimized_route[i+1]
-        optimized_people += lengths[(source,target,0)]*(1/4000)*ped_rates[(source,target,0)]
+    # #     optimized_people += lengths[(source,target,0)]*(1/4000)*ped_rates[(source,target,0)]
         optimized_length += lengths[(source,target,0)]
 
     short_start_lat, short_start_lon, short_dest_lat, short_dest_lon = nodes_to_lats_lons(gdf_nodes, shortest_route)
@@ -317,32 +319,26 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
 
     #This finds the bounds of the final map to show based on the paths
     #min_x, max_x, min_y, max_y = get_map_bounds(gdf_nodes, shortest_route, optimized_route)
-    min_x, max_x, min_y, max_y = -37.82,-37.805,144.95, 144.97
+    #min_x, max_x, min_y, max_y = -37.82,-37.805,144.95, 144.97
 
-    # #These are lists of origin/destination coords of the paths that the routes take
+    # # #These are lists of origin/destination coords of the paths that the routes take
     # opt_start_lat, opt_start_lon, opt_dest_lat, opt_dest_lon = nodes_to_lats_lons(gdf_nodes, optimized_route)
-    #
-    # #Move coordinates into dfs
+    # #
+    # # #Move coordinates into dfs
     # opt_df = pd.DataFrame({'startlat':opt_start_lat, 'startlon':opt_start_lon, 'destlat': opt_dest_lat, 'destlon':opt_dest_lon})
-    #
-    # start_node_df = get_node_df(start_location)
+    # #
+    # # start_node_df = get_node_df(start_location)
     # optimized_layer = make_linelayer(opt_df, '[0,0,179]')
-    # ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']])
     #
     #
-    # st.pydeck_chart(pdk.Deck(
-    #     map_style="mapbox://styles/mapbox/light-v9",
-    #     initial_view_state=pdk.ViewState(latitude = -37.8125, longitude = 144.96, zoom=13.5),
-    #     layers=[short_layer, optimized_layer, ped_layer]))
-    #
-    # min_x, max_x, min_y, max_y = -37.82,-37.805,144.95, 144.97
-    #
-    # d = {'Shortest Route (grey)': [round(shortest_length/1000,2),round(shortest_people)], 'Optimized Route (blue)': [round(optimized_length/1000,2),round(optimized_people)]}
-    # df = pd.DataFrame(data=d)
-    # df.rename(index={0:"Distance, in km: "},inplace=True)
-    # df.rename(index={1:"Total expected pedestrian interactions: "},inplace=True)
-    # st.table(df)
-    # return
+    d = {'Shortest Route (grey)': [round(shortest_length/1000,2),round(shortest_people)]}
+
+    #d = {'Shortest Route (grey)': [round(shortest_length/1000,2),round(shortest_people)], 'Optimized Route (blue)': [round(optimized_length/1000,2),round(optimized_people)]}
+    df = pd.DataFrame(data=d)
+    df.rename(index={0:"Distance, in km: "},inplace=True)
+    df.rename(index={1:"Total expected pedestrian interactions: "},inplace=True)
+    layers=[short_layer];
+    return df, layers
 
 
 #################### RUN THE WEB APP ####################################
@@ -386,24 +382,9 @@ if not submit:
         initial_view_state=pdk.ViewState(
             latitude=-37.8125,
             longitude=144.96,
-            zoom=13.5,
-        ),
-        # layers=[
-        #     pdk.Layer(
-        #     )
-        #]
-    ))
-
-
-    # st.pydeck_chart(pdk.Deck(
-    #     map_style="mapbox://styles/mapbox/light-v9",
-    #     initial_view_state=pdk.ViewState(latitude = -37.81375, longitude = 144.9669, zoom=13.5),
-    #     layers=[ped_layer]))
+            zoom=13.5)))
 
 else:
-
-
-
     with st.spinner('Routing'):
         start_node, end_node = get_nodes(G, input_start, input_dest)
 
@@ -418,28 +399,17 @@ else:
         edge_centroids = np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x'])));
         gdf_edges['ped_rate'] = interpolate.griddata(ped_station_locations,ped_station_values,edge_centroids, method='cubic',rescale=False,fill_value=0);
 
-        calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, slider_factor)
-        #
-        # df = pd.DataFrame(
-        # np.random.randn(1000, 2) / [50, 50] + [37.76, -122.4],
-        # columns=['lat', 'lon'])
-        # st.pydeck_chart(pdk.Deck(
-        #     initial_view_state=pdk.ViewState(
-        #         map_style="mapbox://styles/mapbox/light-v9",
-        #         latitude=-37.8125,
-        #         longitude=144.96,
-        #         zoom=13.5,
-        #     ),
-        #     layers=[
-        #         pdk.Layer(
-        #         )
-        #     ]
-        # ))
+        df, layers = calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, slider_factor)
 
-        #     tuple(zip(ped_predicted['latitude'], ped_predicted['longitude']))
-        #     np.array(ped_predicted[[slider_future]]
-        #
-        #
-        #     interpolate.griddata(np.array(tuple(zip(ped_predicted['latitude'], ped_predicted['longitude']))),np.array(ped_predicted[[slider_future]]),np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic',rescale=False,fill_value=0)
-        # gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
-        # calculate_routes(, input_start, input_dest, )
+        map_data = ped_current[['latitude','longitude']];
+        st.pydeck_chart(pdk.Deck(
+            map_style="mapbox://styles/mapbox/light-v9",
+            initial_view_state=pdk.ViewState(
+                latitude=-37.8125,
+                longitude=144.96,
+                zoom=13.5,
+            ),
+            layers=[layers]
+        ))
+
+        st.table(df)
