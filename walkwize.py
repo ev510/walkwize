@@ -187,8 +187,6 @@ def get_model_results_data():
     #poisson_training_results = pd.read_pickle(data_location)
     return pd.read_pickle(data_location)
 
-
-
 def get_map_bounds(gdf_nodes, route1, route2):
     #Inputs: node df, and two lists of nodes along path
     #Returns: Coordinates of smallest rectangle that contains all nodes
@@ -322,16 +320,15 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
     #min_x, max_x, min_y, max_y = -37.82,-37.805,144.95, 144.97
 
     # # #These are lists of origin/destination coords of the paths that the routes take
-    # opt_start_lat, opt_start_lon, opt_dest_lat, opt_dest_lon = nodes_to_lats_lons(gdf_nodes, optimized_route)
+    #opt_start_lat, opt_start_lon, opt_dest_lat, opt_dest_lon = nodes_to_lats_lons(gdf_nodes, optimized_route)
     # #
     # # #Move coordinates into dfs
-    # opt_df = pd.DataFrame({'startlat':opt_start_lat, 'startlon':opt_start_lon, 'destlat': opt_dest_lat, 'destlon':opt_dest_lon})
+    #opt_df = pd.DataFrame({'startlat':opt_start_lat, 'startlon':opt_start_lon, 'destlat': opt_dest_lat, 'destlon':opt_dest_lon})
     # #
     # # start_node_df = get_node_df(start_location)
-    # optimized_layer = make_linelayer(opt_df, '[0,0,179]')
-    #
-    #
-
+    #optimized_layer = make_linelayer(opt_df, '[0,0,179]')
+    # Need to change
+    optimized_layer = make_linelayer(short_df, '[0,0,179]')
 
     d = {'Shortest Route (grey)': [round(shortest_length/1000,2),round(shortest_people)]}
 
@@ -339,7 +336,7 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
     df = pd.DataFrame(data=d)
     df.rename(index={0:"Distance, in km: "},inplace=True)
     df.rename(index={1:"Total expected pedestrian interactions: "},inplace=True)
-    layers=[short_layer];
+    layers=[short_layer, optimized_layer];
     return df, layers
 
 
@@ -403,7 +400,7 @@ else:
 
         df, layers = calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, slider_factor)
 
-        map_data = ped_current[['latitude','longitude']];
+        map_data = ped_current[['latitude', 'longitude']];
         st.pydeck_chart(pdk.Deck(
             map_style="mapbox://styles/mapbox/light-v9",
             initial_view_state=pdk.ViewState(
@@ -412,6 +409,6 @@ else:
                 zoom=13.5,
             ),
             layers=[layers]
-        ))
+            ))
 
         st.table(df)
