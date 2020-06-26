@@ -126,7 +126,7 @@ def get_ped_predicted(model_training_results):
     station_IDs = [1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
                    22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
                    44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
-
+    #
     y_future, X_future = make_future()
 
     for SID in station_IDs:
@@ -211,7 +211,6 @@ def get_ped_station_data():
     return ped_stations
 
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_ped_data_current(ped_stations):
     ped_current = pd.read_json(
         "https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
@@ -219,8 +218,6 @@ def get_ped_data_current(ped_stations):
         'sensor_id')['total_of_directions'].sum().to_frame()
     ped_current = ped_stations[['latitude', 'longitude']].join(ped_current)
     return ped_current
-
-# @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 
 
 def predict_ped_rates():
@@ -361,7 +358,8 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
     # Path of nodes
     optimized_route = nx.shortest_path(
         G, start_node, end_node, weight='optimized')
-    shortest_route = nx.shortest_path(G, start_node, end_node, weight='length')
+    shortest_route = nx.shortest_path(
+        G, start_node, end_node, weight='length')
     min_dist = nx.shortest_path_length(
         G, start_node, end_node, weight='length')
     # optimized_route
@@ -388,20 +386,18 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
                              'destlat': short_dest_lat, 'destlon': short_dest_lon})
     short_layer = make_linelayer(short_df, '[160,160,160]')
 
-    # This finds the bounds of the final map to show based on the paths
-    #min_x, max_x, min_y, max_y = get_map_bounds(gdf_nodes, shortest_route, optimized_route)
-    #min_x, max_x, min_y, max_y = -37.82,-37.805,144.95, 144.97
+    #This finds the bounds of the final map to show based on the paths
+    # min_x, max_x, min_y, max_y = get_map_bounds(gdf_nodes, shortest_route, optimized_route)
+    # min_x, max_x, min_y, max_y = -37.82,-37.805,144.95, 144.97
 
-    # # #These are lists of origin/destination coords of the paths that the routes take
-    #opt_start_lat, opt_start_lon, opt_dest_lat, opt_dest_lon = nodes_to_lats_lons(gdf_nodes, optimized_route)
-    # #
-    # # #Move coordinates into dfs
-    #opt_df = pd.DataFrame({'startlat':opt_start_lat, 'startlon':opt_start_lon, 'destlat': opt_dest_lat, 'destlon':opt_dest_lon})
-    # #
-    # # start_node_df = get_node_df(start_location)
-    #optimized_layer = make_linelayer(opt_df, '[0,0,179]')
-    # Need to change
-    optimized_layer = make_linelayer(short_df, '[0,0,179]')
+    # #These are lists of origin/destination coords of the paths that the routes take
+    opt_start_lat, opt_start_lon, opt_dest_lat, opt_dest_lon = nodes_to_lats_lons(gdf_nodes, optimized_route)
+    #
+    # #Move coordinates into dfs
+    opt_df = pd.DataFrame({'startlat':opt_start_lat, 'startlon':opt_start_lon, 'destlat': opt_dest_lat, 'destlon':opt_dest_lon})
+    #
+    # start_node_df = get_node_df(start_location)
+    optimized_layer = make_linelayer(opt_df, '[0,0,179]')
 
     d = {'Shortest Route (grey)': [round(
         shortest_length / 1000, 2), round(shortest_people)]}
@@ -427,6 +423,7 @@ trained_models = get_trained_models()
 
 # Grab live conditions
 ped_current = get_ped_data_current(ped_stations)
+
 # Predict future conditions
 ped_predicted = predict_ped_rates()
 
@@ -444,13 +441,14 @@ st.sidebar.header("Location Suggestions:")
 st.sidebar.markdown(
     "*State Library of Victoria, Immigration Museum, Flagstaff Gardens, Vision Apartments*")
 
-gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))), np.array(
-    ped_current['total_of_directions']), np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic', rescale=False, fill_value=0)
+# gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))), np.array(
+#     ped_current['total_of_directions']), np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic', rescale=False, fill_value=0)
 
 u_x = [gdf_nodes.loc[u].x for u in gdf_edges['u']]
 u_y = [gdf_nodes.loc[u].y for u in gdf_edges['u']]
 v_x = [gdf_nodes.loc[v].x for v in gdf_edges['v']]
 v_y = [gdf_nodes.loc[v].y for v in gdf_edges['v']]
+
 
 gdfe = pd.DataFrame({
     'u_x': u_x,
@@ -463,14 +461,9 @@ ped_layer = pdk.Layer(
         type='LineLayer',
         data=gdfe,
         getSourcePosition='[u_x, u_y]',
-        getTargetPosition='[u_x, u_y]',
+        getTargetPosition='[v_x, v_y]',
         getColor='[160,160,160]',
         getWidth='5')
-
-
-
-
-#ped_layer = make_pedlayer(gdf_edges[['centroid_x','centroid_y','ped_rate']],COLOR_BREWER_RED)
 
 submit = st.sidebar.button('Find route', key=1)
 
@@ -496,13 +489,22 @@ else:
 
         if slider_future == 0:
             ped_station_values = np.array(ped_current['total_of_directions'])
+            #st.table(ped_current['total_of_directions'])
+            #ped_current['total_of_directions']
         else:
             ped_station_values = np.array(ped_predicted[[slider_future]])
+            #st.table(ped_station_values)
+            #np.array(ped_predicted[[slider_future]])
 
         edge_centroids = np.array(
             tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x'])))
+
         gdf_edges['ped_rate'] = interpolate.griddata(
             ped_station_locations, ped_station_values, edge_centroids, method='cubic', rescale=False, fill_value=0)
+        gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
+
+        st.markdown(max(gdf_edges['ped_rate']))
+        st.markdown(ped_station_values)
 
         df, layers = calculate_routes(
              G, gdf_nodes, gdf_edges, start_node, end_node, slider_factor)
