@@ -1,5 +1,6 @@
 import datetime as dt
 import matplotlib.pyplot as plt
+from matplotlib import cm
 import networkx as nx
 import numpy as np
 import osmnx as ox
@@ -74,24 +75,37 @@ def get_modeled_future():
 
 
 def make_pedlinelayer(gdf_nodes, gdf_edges):
+
     u_x = [gdf_nodes.loc[u].x for u in gdf_edges['u']]
     u_y = [gdf_nodes.loc[u].y for u in gdf_edges['u']]
     v_x = [gdf_nodes.loc[v].x for v in gdf_edges['v']]
     v_y = [gdf_nodes.loc[v].y for v in gdf_edges['v']]
-
+    color_map = cm.get_cmap('YlOrRd', 1000)
+    color = pd.DataFrame(color_map(gdf_edges.apply(lambda u: (u['ped_rate']/100), axis=1).clip(upper=1)))
     gdfe = pd.DataFrame({
         'u_x': u_x,
         'u_y': u_y,
         'v_x': v_x,
-        'v_y': v_y
+        'v_y': v_y,
+        'color_r': color[0]*256,
+        'color_g': color[1]*256,
+        'color_b': color[2]*256
     })
+
+
+
+
+
+
+    #gdfe = gdfe.join(color)
 
     ped_layer = pdk.Layer(
             type='LineLayer',
             data=gdfe,
             getSourcePosition='[u_x, u_y]',
             getTargetPosition='[v_x, v_y]',
-            getColor='[200,200,200]',
+            getColor='[color_r,color_g,color_b]',
+            #getColor='[]',
             getWidth='2')
     return ped_layer
 
@@ -314,7 +328,10 @@ submit = st.sidebar.button('Find route', key=1)
 
 edge_centroids = np.array(
     tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x'])))
-ped_layer = make_pedlinelayer(gdf_nodes, gdf_edges)
+
+
+
+
 
 if not submit:
     values = np.array(ped_current['total_of_directions'])
@@ -322,6 +339,8 @@ if not submit:
     gdf_edges['ped_rate'] = interpolate.griddata(
         locations,values, edge_centroids, method='cubic', rescale=False, fill_value=0)
     gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
+
+    ped_layer = make_pedlinelayer(gdf_nodes, gdf_edges)
 
     st.pydeck_chart(pdk.Deck(
         map_style="mapbox://styles/mapbox/light-v9",
@@ -356,7 +375,8 @@ else:
 
     df, layers = calculate_routes(G,gdf_nodes,gdf_edges,start_node,end_node,slider_factor)
 
-    map_data = ped_current[['latitude', 'longitude']]
+    ped_layer = make_pedlinelayer(gdf_nodes, gdf_edges)
+
     st.pydeck_chart(pdk.Deck(
         map_style="mapbox://styles/mapbox/light-v9",
         initial_view_state=pdk.ViewState(
