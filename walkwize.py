@@ -91,37 +91,9 @@ def make_pedlinelayer(gdf_nodes, gdf_edges):
             data=gdfe,
             getSourcePosition='[u_x, u_y]',
             getTargetPosition='[v_x, v_y]',
-            getColor='[160,160,160]',
-            getWidth='5')
+            getColor='[200,200,200]',
+            getWidth='2')
     return ped_layer
-
-    #pdk.Layer(
-    #     type='LineLayer',
-    #     data=df,
-    #     getSourcePosition='[startlon, startlat]',
-    #     getTargetPosition='[destlon, destlat]',
-    #     getColor=color_array,
-    #     getWidth='5')
-    #
-    #
-    # for u in gdf_edges['u']:
-    #     gdf_edges['u_x'] = gdf_nodes.loc[u].x
-    #     gdf_edges['u_y'] = gdf_nodes.loc[u].y
-    #
-    # for v in gdf_edges['v']:
-    #     gdf_edges['v_x'] = gdf_nodes.loc[v].x
-    #     gdf_edges['v_y'] = gdf_nodes.loc[v].y
-    #
-    #
-    #
-    #
-    #
-    # start_coords = (start_location[0], start_location[1])
-    # end_coords = (end_location[0], end_location[1])
-    #
-    # # Snap addresses to graph nodes
-    # start_node = ox.get_nearest_node(G, start_coords)
-    # end_node = ox.get_nearest_node(G, end_coords)
 
 def make_linelayer(df, color_array):
     # Inputs: df with [startlat, startlon, destlat, destlon] and font color as str([R,G,B]) - yes '[R,G,B]'
@@ -134,16 +106,6 @@ def make_linelayer(df, color_array):
         getTargetPosition='[destlon, destlat]',
         getColor=color_array,
         getWidth='5')
-
-def make_pedlayer(df, color_array):
-    return pdk.Layer(
-        "HeatmapLayer",
-        data=df,
-        opacity=0.1,
-        get_position=["centroid_x", "centroid_y"],
-        aggregation="mean",
-        get_weight="ped_rate")
-
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_ped_station_data():
@@ -159,7 +121,6 @@ def get_ped_data_current(ped_stations):
         'sensor_id')['total_of_directions'].sum().to_frame()
     ped_current = ped_stations[['latitude', 'longitude']].join(ped_current)
     return ped_current.dropna()
-
 
 def predict_ped_rates(model_future):
     start_date = dt.datetime.now().astimezone(pytz.timezone('Australia/Sydney'))
@@ -235,99 +196,7 @@ def get_nodes(G, s, e):
     end_node = ox.get_nearest_node(G, end_coords)
     return start_node, end_node
 
-
 def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
-    return
-
-
-#################### RUN THE WEB APP ####################################
-# While the user is getting set up, the webapp should run, and estimate for the next 24 hours.
-# Grab pickled resources
-ped_stations = get_ped_stations()
-G, gdf_nodes, gdf_edges= get_map_data()
-
-
-# Grab live conditions
-ped_current = get_ped_data_current(ped_stations)
-
-# Predict future conditions
-modeled_future = get_modeled_future()
-ped_predicted = predict_ped_rates(modeled_future)
-
-#### WEB APP ####
-st.sidebar.title("WalkWize")
-st.sidebar.markdown("*Take the path least traveled*")
-st.sidebar.header("Let's plan your walk!")
-
-input_start = st.sidebar.text_input('Where will you start?')
-input_dest = st.sidebar.text_input('Where are you going?')
-slider_future = st.sidebar.slider('Conditions in __ hours?', 0, 24)
-slider_factor = st.sidebar.slider('How crowd averse are you? (0-10)', 0, 10)
-
-st.sidebar.header("Location Suggestions:")
-st.sidebar.markdown(
-    "*State Library of Victoria, Immigration Museum, Flagstaff Gardens, Vision Apartments*")
-
-# gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))), np.array(
-#     ped_current['total_of_directions']), np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic', rescale=False, fill_value=0)
-
-
-
-
-submit = st.sidebar.button('Find route', key=1)
-
-edge_centroids = np.array(
-    tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x'])))
-
-if not submit:
-    values = np.array(ped_current['total_of_directions'])
-    locations = np.array(ped_current[['latitude','longitude']])
-    gdf_edges['ped_rate'] = interpolate.griddata(
-        locations,values, edge_centroids, method='cubic', rescale=False, fill_value=0)
-    gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
-
-    ped_layer = make_pedlinelayer(gdf_nodes, gdf_edges)
-
-
-
-    st.pydeck_chart(pdk.Deck(
-        map_style="mapbox://styles/mapbox/light-v9",
-        initial_view_state=pdk.ViewState(
-            latitude=-37.8125,
-            longitude=144.96,
-            zoom=13.5
-        ),
-        layers=[ped_layer]
-    ))
-
-else:
-    with st.spinner('Routing'):
-
-
-        if slider_future == 0:
-            values = np.array(ped_current['total_of_directions'])
-            locations = np.array(ped_current[['latitude','longitude']])
-            #st.table(ped_current['total_of_directions'])
-            #ped_current['total_of_directions']
-        else:
-            values = np.array(ped_predicted[[slider_future]])
-            pp = ped_predicted[[slider_future]].join(ped_stations[['latitude', 'longitude']])
-            locations = np.array(
-                tuple(zip(pp['latitude'], pp['longitude'])))
-            #st.table(ped_station_values)
-            #np.array(ped_predicted[[slider_future]])
-
-
-    start_node, end_node = get_nodes(G, input_start, input_dest)
-
-    edge_centroids = np.array(
-        tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x'])))
-
-    gdf_edges['ped_rate'] = interpolate.griddata(
-        locations,values, edge_centroids, method='cubic', rescale=False, fill_value=0)
-    gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
-
-
     ### ROUTING ###
     lengths = {}
     ped_rates = {}
@@ -412,33 +281,80 @@ else:
         index={1: "Total expected pedestrian interactions: "}, inplace=True)
     layers = [short_layer, optimized_layer]
 
+    return df, layers
 
 
+#################### RUN THE WEB APP ####################################
+# Grab pickled resources
+ped_stations = get_ped_stations()
+G, gdf_nodes, gdf_edges= get_map_data()
 
+# Grab live conditions
+ped_current = get_ped_data_current(ped_stations)
 
+# Predict future conditions
+modeled_future = get_modeled_future()
+ped_predicted = predict_ped_rates(modeled_future)
 
+#### WEB APP ####
+st.sidebar.title("WalkWize")
+st.sidebar.markdown("*Take the path least traveled*")
+st.sidebar.header("Let's plan your walk!")
 
+input_start = st.sidebar.text_input('Where will you start?')
+input_dest = st.sidebar.text_input('Where are you going?')
+slider_future = st.sidebar.slider('Conditions in __ hours?', 0, 24)
+slider_factor = st.sidebar.slider('How crowd averse are you? (0-10)', 0, 10)
 
+st.sidebar.header("Location Suggestions:")
+st.sidebar.markdown(
+    "*State Library of Victoria, Immigration Museum, Flagstaff Gardens, Vision Apartments*")
 
+submit = st.sidebar.button('Find route', key=1)
 
+edge_centroids = np.array(
+    tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x'])))
+ped_layer = make_pedlinelayer(gdf_nodes, gdf_edges)
 
+if not submit:
+    values = np.array(ped_current['total_of_directions'])
+    locations = np.array(ped_current[['latitude','longitude']])
+    gdf_edges['ped_rate'] = interpolate.griddata(
+        locations,values, edge_centroids, method='cubic', rescale=False, fill_value=0)
+    gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
 
+    st.pydeck_chart(pdk.Deck(
+        map_style="mapbox://styles/mapbox/light-v9",
+        initial_view_state=pdk.ViewState(
+            latitude=-37.8125,
+            longitude=144.96,
+            zoom=13.5
+        ),
+        layers=[ped_layer]
+    ))
 
+else:
+    with st.spinner('Routing'):
+        if slider_future == 0:
+            values = np.array(ped_current['total_of_directions'])
+            locations = np.array(ped_current[['latitude','longitude']])
 
+        else:
+            values = np.array(ped_predicted[[slider_future]])
+            pp = ped_predicted[[slider_future]].join(ped_stations[['latitude', 'longitude']])
+            locations = np.array(
+                tuple(zip(pp['latitude'], pp['longitude'])))
 
+    start_node, end_node = get_nodes(G, input_start, input_dest)
 
+    edge_centroids = np.array(
+        tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x'])))
 
+    gdf_edges['ped_rate'] = interpolate.griddata(
+        locations,values, edge_centroids, method='cubic', rescale=False, fill_value=0)
+    gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
 
-
-
-
-
-
-
-
-
-    # df, layers = calculate_routes(
-    #      G, gdf_nodes, gdf_edges, start_node, end_node, slider_factor)
+    df, layers = calculate_routes(G,gdf_nodes,gdf_edges,start_node,end_node,slider_factor)
 
     map_data = ped_current[['latitude', 'longitude']]
     st.pydeck_chart(pdk.Deck(
@@ -448,7 +364,7 @@ else:
             longitude=144.96,
             zoom=13.5,
         ),
-        layers=[layers]
+        layers=[ped_layer,layers]
     ))
 
     st.table(df)
