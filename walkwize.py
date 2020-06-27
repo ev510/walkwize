@@ -60,7 +60,12 @@ def get_gdf_edges():
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_map_data():
-    return pickle_from_S3('G.p')
+    G = pickle_from_S3('G.p')
+    gdf_nodes, gdf_edges = ox.utils_graph.graph_to_gdfs(G, nodes=True, edges=True, node_geometry=True, fill_edge_geometry=True)
+    gdf_edges['centroid_x'] = gdf_edges.apply(lambda r: r.geometry.centroid.x, axis=1)
+    gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=1)
+
+    return G, gdf_nodes, gdf_edges
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_modeled_future():
@@ -68,37 +73,55 @@ def get_modeled_future():
 
 
 
-def make_pedlinelayer(df, color_array):
-    # Inputs: df with [startlat, startlon, destlat, destlon] and font color as str([R,G,B]) - yes '[R,G,B]'
-    # Plots lines between each line's [startlon, startlat] and [destlon, destlat]
-    # Returns: pydeck LineLayer
-    return pdk.Layer(
-        type='LineLayer',
-        data=df,
-        getSourcePosition='[startlon, startlat]',
-        getTargetPosition='[destlon, destlat]',
-        getColor=color_array,
-        getWidth='5')
+def make_pedlinelayer(gdf_nodes, gdf_edges):
+    u_x = [gdf_nodes.loc[u].x for u in gdf_edges['u']]
+    u_y = [gdf_nodes.loc[u].y for u in gdf_edges['u']]
+    v_x = [gdf_nodes.loc[v].x for v in gdf_edges['v']]
+    v_y = [gdf_nodes.loc[v].y for v in gdf_edges['v']]
 
+    gdfe = pd.DataFrame({
+        'u_x': u_x,
+        'u_y': u_y,
+        'v_x': v_x,
+        'v_y': v_y
+    })
 
-    for u in gdf_edges['u']:
-        gdf_edges['u_x'] = gdf_nodes.loc[u].x
-        gdf_edges['u_y'] = gdf_nodes.loc[u].y
+    ped_layer = pdk.Layer(
+            type='LineLayer',
+            data=gdfe,
+            getSourcePosition='[u_x, u_y]',
+            getTargetPosition='[v_x, v_y]',
+            getColor='[160,160,160]',
+            getWidth='5')
+    return ped_layer
 
-    for v in gdf_edges['v']:
-        gdf_edges['v_x'] = gdf_nodes.loc[v].x
-        gdf_edges['v_y'] = gdf_nodes.loc[v].y
-
-
-
-
-
-    start_coords = (start_location[0], start_location[1])
-    end_coords = (end_location[0], end_location[1])
-
-    # Snap addresses to graph nodes
-    start_node = ox.get_nearest_node(G, start_coords)
-    end_node = ox.get_nearest_node(G, end_coords)
+    #pdk.Layer(
+    #     type='LineLayer',
+    #     data=df,
+    #     getSourcePosition='[startlon, startlat]',
+    #     getTargetPosition='[destlon, destlat]',
+    #     getColor=color_array,
+    #     getWidth='5')
+    #
+    #
+    # for u in gdf_edges['u']:
+    #     gdf_edges['u_x'] = gdf_nodes.loc[u].x
+    #     gdf_edges['u_y'] = gdf_nodes.loc[u].y
+    #
+    # for v in gdf_edges['v']:
+    #     gdf_edges['v_x'] = gdf_nodes.loc[v].x
+    #     gdf_edges['v_y'] = gdf_nodes.loc[v].y
+    #
+    #
+    #
+    #
+    #
+    # start_coords = (start_location[0], start_location[1])
+    # end_coords = (end_location[0], end_location[1])
+    #
+    # # Snap addresses to graph nodes
+    # start_node = ox.get_nearest_node(G, start_coords)
+    # end_node = ox.get_nearest_node(G, end_coords)
 
 def make_linelayer(df, color_array):
     # Inputs: df with [startlat, startlon, destlat, destlon] and font color as str([R,G,B]) - yes '[R,G,B]'
@@ -129,7 +152,6 @@ def get_ped_station_data():
     ped_stations.set_index("sensor_id", inplace=True)
     return ped_stations
 
-
 def get_ped_data_current(ped_stations):
     ped_current = pd.read_json(
         "https://data.melbourne.vic.gov.au/resource/d6mv-s43h.json")
@@ -153,27 +175,6 @@ def predict_ped_rates(model_future):
     future = future.transpose().join(ped_stations)
     return future
 
-def get_map_bounds(gdf_nodes, route1, route2):
-    # Inputs: node df, and two lists of nodes along path
-    # Returns: Coordinates of smallest rectangle that contains all nodes
-    max_x = -1000
-    min_x = 1000
-    max_y = -1000
-    min_y = 1000
-
-    for i in (route1 + route2):
-        row = gdf_nodes.loc[i]
-        temp_x = row['x']
-        temp_y = row['y']
-
-        max_x = max(temp_x, max_x)
-        min_x = min(temp_x, min_x)
-        max_y = max(temp_y, max_y)
-        min_y = min(temp_y, min_y)
-
-    return min_x, max_x, min_y, max_y
-
-
 def nodes_to_lats_lons(nodes, path_nodes):
     # Inputs: node df, and list of nodes along path
     # Returns: 4 lists of source and destination lats/lons for each step of that path for LineLayer
@@ -190,7 +191,6 @@ def nodes_to_lats_lons(nodes, path_nodes):
         dest_lons.append(nodes.loc[path_nodes[i + 1]]['x'])
 
     return (source_lats, source_lons, dest_lats, dest_lons)
-
 
 def get_nodes(G, s, e):
     # Inputs: Graph,  source, end
@@ -244,16 +244,7 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
 # While the user is getting set up, the webapp should run, and estimate for the next 24 hours.
 # Grab pickled resources
 ped_stations = get_ped_stations()
-# gdf_nodes = get_gdf_nodes()
-# gdf_edges = get_gdf_edges()
-G = get_map_data()
-
-
-# Prep nodes and edges
-gdf_nodes, gdf_edges = ox.utils_graph.graph_to_gdfs(G, nodes=True, edges=True, node_geometry=True, fill_edge_geometry=True)
-gdf_edges['centroid_x'] = gdf_edges.apply(lambda r: r.geometry.centroid.x, axis=1)
-gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=1)
-
+G, gdf_nodes, gdf_edges= get_map_data()
 
 
 # Grab live conditions
@@ -280,32 +271,25 @@ st.sidebar.markdown(
 # gdf_edges['ped_rate'] = interpolate.griddata(np.array(tuple(zip(ped_current['latitude'], ped_current['longitude']))), np.array(
 #     ped_current['total_of_directions']), np.array(tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x']))), method='cubic', rescale=False, fill_value=0)
 
-u_x = [gdf_nodes.loc[u].x for u in gdf_edges['u']]
-u_y = [gdf_nodes.loc[u].y for u in gdf_edges['u']]
-v_x = [gdf_nodes.loc[v].x for v in gdf_edges['v']]
-v_y = [gdf_nodes.loc[v].y for v in gdf_edges['v']]
 
 
-gdfe = pd.DataFrame({
-    'u_x': u_x,
-    'u_y': u_y,
-    'v_x': v_x,
-    'v_y': v_y
-})
-
-ped_layer = pdk.Layer(
-        type='LineLayer',
-        data=gdfe,
-        getSourcePosition='[u_x, u_y]',
-        getTargetPosition='[v_x, v_y]',
-        getColor='[160,160,160]',
-        getWidth='5')
 
 submit = st.sidebar.button('Find route', key=1)
 
+edge_centroids = np.array(
+    tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x'])))
 
 if not submit:
-    map_data = ped_current[['latitude', 'longitude']]
+    values = np.array(ped_current['total_of_directions'])
+    locations = np.array(ped_current[['latitude','longitude']])
+    gdf_edges['ped_rate'] = interpolate.griddata(
+        locations,values, edge_centroids, method='cubic', rescale=False, fill_value=0)
+    gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
+
+    ped_layer = make_pedlinelayer(gdf_nodes, gdf_edges)
+
+
+
     st.pydeck_chart(pdk.Deck(
         map_style="mapbox://styles/mapbox/light-v9",
         initial_view_state=pdk.ViewState(
