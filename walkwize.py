@@ -62,79 +62,11 @@ def get_gdf_edges():
 def get_map_data():
     return pickle_from_S3('G.p')
 
-
-# @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-# def get_trained_models():
-#     return pickle_from_S3('trained_models.p')
-
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_modeled_future():
     return pickle_from_S3('modeled_future.p')
 
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-def get_modeled_future():
-    return pickle_from_S3('modeled_future.p')
-
-#
-# def make_future():
-#     # Creating the next 24 hours of AUSTRALIA time
-#     now = dt.datetime.utcnow()
-#     # Round to the next hour
-#     now -= dt.timedelta(hours=-10 - 1, minutes=now.minute,
-#                         seconds=now.second, microseconds=now.microsecond)
-#     # Create next 24 hours
-#     future = pd.date_range(
-#         now, now + dt.timedelta(hours=24), freq='h').to_frame()
-#     # Prep for model input
-#     future = expand_time_index(future)
-#     future['hourly_counts'] = 0
-#     expr = "hourly_counts ~ month + day_of_week + sin_hour + cos_hour"
-#     y_future, X_future = dmatrices(expr, future, return_type='dataframe')
-#     return y_future, X_future
-#
-#
-
-
-
-##### MODELING ####
-
-
-def expand_time_index(df):
-    ds = df.index.to_series()
-    df['month'] = ds.dt.month
-    df['day_of_week'] = ds.dt.dayofweek
-    #df_prepped['day']= ds.dt.day
-    # df_prepped['hour']=ds.dt.hour
-    df['sin_hour'] = np.sin(2 * np.pi * ds.dt.hour / 24)
-    df['cos_hour'] = np.cos(2 * np.pi * ds.dt.hour / 24)
-    return df
-
-
-
-
-#
-# def get_ped_predicted(model_training_results):
-#     #[df_test, df_train, poisson_training_results, nb2_training_results,y_train,y_test,X_train,X_test] = pickle.load( open( "poisson.p", "rb" ) )#
-#
-#     station_IDs = [1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 17, 18, 19, 20, 21,
-#                    22, 23, 24, 26, 27, 28, 29, 30, 31, 34, 35, 36, 37, 40, 41, 42, 43,
-#                    44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
-#     #
-#     y_future, X_future = make_future()
-#
-#     for SID in station_IDs:
-#         y_future.insert(1, SID, model_training_results[SID].get_prediction(
-#             X_future).summary_frame()['mean'], True)
-#
-#     y_future = y_future.drop('hourly_counts', axis=1)
-#     ped_predicted = y_future.transpose()
-#     type(ped_predicted.index)
-#     return ped_predicted
-#     # ped_predicted.index.is_numeric()
-#
-
-########
 
 def make_pedlinelayer(df, color_array):
     # Inputs: df with [startlat, startlon, destlat, destlon] and font color as str([R,G,B]) - yes '[R,G,B]'
@@ -168,12 +100,6 @@ def make_pedlinelayer(df, color_array):
     start_node = ox.get_nearest_node(G, start_coords)
     end_node = ox.get_nearest_node(G, end_coords)
 
-
-
-
-
-
-
 def make_linelayer(df, color_array):
     # Inputs: df with [startlat, startlon, destlat, destlon] and font color as str([R,G,B]) - yes '[R,G,B]'
     # Plots lines between each line's [startlon, startlat] and [destlon, destlat]
@@ -185,7 +111,6 @@ def make_linelayer(df, color_array):
         getTargetPosition='[destlon, destlat]',
         getColor=color_array,
         getWidth='5')
-
 
 def make_pedlayer(df, color_array):
     return pdk.Layer(
@@ -214,9 +139,7 @@ def get_ped_data_current(ped_stations):
     return ped_current.dropna()
 
 
-
-def predict_ped_rates():
-    model_future = pickle_from_S3('modeled_future.p')
+def predict_ped_rates(model_future):
     start_date = dt.datetime.now().astimezone(pytz.timezone('Australia/Sydney'))
     start_date -= dt.timedelta(hours=0, minutes=start_date.minute,
                                seconds=start_date.second, microseconds=start_date.microsecond)
@@ -229,16 +152,6 @@ def predict_ped_rates():
     future = future.drop('ds', axis=1)
     future = future.transpose().join(ped_stations)
     return future
-
-
-@st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
-def get_model_results_data():
-    bucket = 'walkwize'
-    data_key = 'poisson.p'
-    data_location = 's3://{}/{}'.format(bucket, data_key)
-    #poisson_training_results = pd.read_pickle(data_location)
-    return pd.read_pickle(data_location)
-
 
 def get_map_bounds(gdf_nodes, route1, route2):
     # Inputs: node df, and two lists of nodes along path
@@ -347,7 +260,8 @@ gdf_edges['centroid_y'] = gdf_edges.apply(lambda r: r.geometry.centroid.y, axis=
 ped_current = get_ped_data_current(ped_stations)
 
 # Predict future conditions
-ped_predicted = predict_ped_rates()
+modeled_future = get_modeled_future()
+ped_predicted = predict_ped_rates(modeled_future)
 
 #### WEB APP ####
 st.sidebar.title("WalkWize")
