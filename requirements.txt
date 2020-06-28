@@ -5,7 +5,6 @@ statsmodels
 osmnx
 streamlit
 scipy
-psycopg2
 matplotlib
 boto3
 s3fs
