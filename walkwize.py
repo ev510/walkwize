@@ -14,7 +14,7 @@ import statsmodels.formula.api as smf
 import streamlit as st
 import timeit
 import s3fs
-import boto3
+#import boto3
 import pytz
 
 from patsy import dmatrices
