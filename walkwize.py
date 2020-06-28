@@ -75,13 +75,14 @@ def get_modeled_future():
 
 
 def make_pedlinelayer(gdf_nodes, gdf_edges):
-
     u_x = [gdf_nodes.loc[u].x for u in gdf_edges['u']]
     u_y = [gdf_nodes.loc[u].y for u in gdf_edges['u']]
     v_x = [gdf_nodes.loc[v].x for v in gdf_edges['v']]
     v_y = [gdf_nodes.loc[v].y for v in gdf_edges['v']]
     color_map = cm.get_cmap('YlOrRd', 1000)
-    color = pd.DataFrame(color_map(gdf_edges.apply(lambda u: (u['ped_rate']/100), axis=1).clip(upper=1)))
+    color = pd.DataFrame(color_map(gdf_edges.apply(lambda u: (u['ped_rate']/500), axis=1).clip(upper=1)))
+    ped_rate = gdf_edges['ped_rate']
+
     gdfe = pd.DataFrame({
         'u_x': u_x,
         'u_y': u_y,
@@ -89,15 +90,10 @@ def make_pedlinelayer(gdf_nodes, gdf_edges):
         'v_y': v_y,
         'color_r': color[0]*256,
         'color_g': color[1]*256,
-        'color_b': color[2]*256
+        'color_b': color[2]*256,
+        'ped_rate': ped_rate
     })
 
-
-
-
-
-
-    #gdfe = gdfe.join(color)
 
     ped_layer = pdk.Layer(
             type='LineLayer',
@@ -105,9 +101,17 @@ def make_pedlinelayer(gdf_nodes, gdf_edges):
             getSourcePosition='[u_x, u_y]',
             getTargetPosition='[v_x, v_y]',
             getColor='[color_r,color_g,color_b]',
-            #getColor='[]',
             getWidth='2')
-    return ped_layer
+
+    ped_layer2 = pdk.Layer(
+		"HeatmapLayer",
+		data=gdfe,
+		opacity=0.1,
+		get_position='[u_x, u_y]',
+		aggregation="mean",
+		get_weight="[ped_rate]")
+
+    return ped_layer, ped_layer2
 
 def make_linelayer(df, color_array):
     # Inputs: df with [startlat, startlon, destlat, destlon] and font color as str([R,G,B]) - yes '[R,G,B]'
@@ -326,18 +330,17 @@ st.sidebar.markdown(
 
 submit = st.sidebar.button('Find route', key=1)
 
+string = (dt.datetime.utcnow()-dt.timedelta(hours = -10)).strftime("%Y-%m-%d %H:%M")
+st.markdown("The current time in Melbourne: " + string)
+
 edge_centroids = np.array(
     tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x'])))
-
-
-
-
 
 if not submit:
     values = np.array(ped_current['total_of_directions'])
     locations = np.array(ped_current[['latitude','longitude']])
     gdf_edges['ped_rate'] = interpolate.griddata(
-        locations,values, edge_centroids, method='cubic', rescale=False, fill_value=0)
+        locations,values, edge_centroids, method='linear', rescale=False, fill_value=0)
     gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
 
     ped_layer = make_pedlinelayer(gdf_nodes, gdf_edges)
@@ -345,9 +348,11 @@ if not submit:
     st.pydeck_chart(pdk.Deck(
         map_style="mapbox://styles/mapbox/light-v9",
         initial_view_state=pdk.ViewState(
-            latitude=-37.8125,
-            longitude=144.96,
-            zoom=13.5
+        latitude=-37.8125,
+        longitude=144.96,
+        zoom=13.5,
+        width=600,
+        height=600
         ),
         layers=[ped_layer]
     ))
@@ -370,12 +375,12 @@ else:
         tuple(zip(gdf_edges['centroid_y'], gdf_edges['centroid_x'])))
 
     gdf_edges['ped_rate'] = interpolate.griddata(
-        locations,values, edge_centroids, method='cubic', rescale=False, fill_value=0)
+        locations,values, edge_centroids, method='linear', rescale=False,fill_value=0)
     gdf_edges['ped_rate'] = gdf_edges['ped_rate'].clip(lower=0)
 
     df, layers = calculate_routes(G,gdf_nodes,gdf_edges,start_node,end_node,slider_factor)
 
-    ped_layer = make_pedlinelayer(gdf_nodes, gdf_edges)
+    ped_layer, ped_layer2 = make_pedlinelayer(gdf_nodes, gdf_edges)
 
     st.pydeck_chart(pdk.Deck(
         map_style="mapbox://styles/mapbox/light-v9",
@@ -383,8 +388,10 @@ else:
             latitude=-37.8125,
             longitude=144.96,
             zoom=13.5,
+            width=600,
+            height=600
         ),
-        layers=[ped_layer,layers]
+        layers=[ped_layer2, layers]
     ))
 
     st.table(df)
