@@ -29,6 +29,7 @@ Historic and real-time pedestrian data from the [City of Melbourne](http://www.p
 
 ### Example
 - After the user enters there end points, when they wish to leave, and how crowd averse they are, the app shows both the shortest route (grey) and an optimized route (blue), as well as some statistics about the two routes.
+
 ![Screenshot of WalkWize](https://github.com/ev510/walkwize/blob/master/images/screenshot.png)
 
 ### More Information
