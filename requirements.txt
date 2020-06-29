@@ -1,9 +1,5 @@
-pandas
-numpy
-rtree==0.9
-statsmodels
-osmnx
-streamlit
-scipy
-matplotlib
-s3fs
+streamlit==0.59
+networkx==2.4
+rtree==0.8
+osmnx==0.13.0
+geopandas
