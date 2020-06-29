@@ -9,8 +9,6 @@ import pickle
 import pydeck as pdk
 import scipy
 import scipy.interpolate as interpolate
-import statsmodels.api as sm
-import statsmodels.formula.api as smf
 import streamlit as st
 import timeit
 import s3fs
