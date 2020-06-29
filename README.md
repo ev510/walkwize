@@ -3,11 +3,6 @@
 
 
 
-
-
-
-
-
 ### Table of Contents
 - [Introduction](#introduction)
 - [Access](#access)
@@ -32,7 +27,8 @@ Historic and real-time pedestrian data from the [City of Melbourne](http://www.p
 
 
 ### Example
-- Here is an example.
+- Here is an example on the webapp in use:
+![Screenshot of WalkWize](https://github.com/ev510/walkwize/blob/master/images/screenshot.png)
 
 ### Acknowledgements
 
