@@ -8,6 +8,7 @@
 - [Access](#access)
 - [Data](#data)
 - [Example](#example)
+- [More Information](#more information)
 - [Acknowledgements](#acknowledgements)
 
 
@@ -29,6 +30,10 @@ Historic and real-time pedestrian data from the [City of Melbourne](http://www.p
 ### Example
 - After the user enters there end points, when they wish to leave, and how crowd averse they are, the app shows both the shortest route (grey) and an optimized route (blue), as well as some statistics about the two routes.
 ![Screenshot of WalkWize](https://github.com/ev510/walkwize/blob/master/images/screenshot.png)
+
+### More Information
+- [Slides with more detail](https://docs.google.com/presentation/d/1lquPW3F_DqFbnXmrDrySa_LwHwxwSYmDK-njy6EQwbo/edit?usp=sharing)
+- [LinkedIn](https://www.linkedin.com/in/emilyvoytek/)
 
 ### Acknowledgements
 
