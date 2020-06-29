@@ -1,6 +1,7 @@
 pandas
 geopandas
 numpy
+scipy
 rtree==0.8
 networkx==2.4
 osmnx==0.13.0
