@@ -13,7 +13,7 @@ import streamlit as st
 import timeit
 import s3fs
 import pytz
-from patsy import dmatrices
+
 # Thanks to Dave Montiero of DogGo
 
 
