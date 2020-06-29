@@ -9,13 +9,10 @@ import pickle
 import pydeck as pdk
 import scipy
 import scipy.interpolate as interpolate
-import statsmodels.api as sm
-import statsmodels.formula.api as smf
 import streamlit as st
 import timeit
 import s3fs
 import pytz
-from patsy import dmatrices
 # Thanks to Dave Montiero of DogGo
 
 
@@ -367,7 +364,7 @@ if not submit:
             width=800,
             height=600
         ),
-        layers=[ped_layer]
+        #layers=[ped_layer]
     ))
 
 else:
