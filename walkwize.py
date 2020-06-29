@@ -407,7 +407,7 @@ else:
             width=800,
             height=600
         ),
-        layers=[ped_layer, layers]
+        #layers=[ped_layer, layers]
     ))
 
     # Display summary table
