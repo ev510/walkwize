@@ -8,13 +8,13 @@
 - [Access](#access)
 - [Data](#data)
 - [Example](#example)
-- [More Information](#more information)
+- [More Information](#more-information)
 - [Acknowledgements](#acknowledgements)
 
 
 ### Introduction
 - WalkWize is an application that will suggests pedestrian walking routes to avoid forecasted congestion in Melbourne, Australia.
-- The user can input their end points, when in the next 24 hours they with to leave, and how risk averse they are.
+- The user can input their end points, when in the next 24 hours they wish to leave, and input of how risk averse they are.
 
 ### Access
 - Online: [walkwize.herokuapp.com](walkwize.herokuapp.com/)
@@ -28,7 +28,7 @@ Historic and real-time pedestrian data from the [City of Melbourne](http://www.p
 
 
 ### Example
-- After the user enters there end points, when they wish to leave, and how crowd averse they are, the app shows both the shortest route (grey) and an optimized route (blue), as well as some statistics about the two routes.
+- After the user enters their end points, when they wish to leave, and how crowd averse they are, the app shows both the shortest route (grey) and an optimized route (blue), as well as some statistics about the two routes.
 
 ![Screenshot of WalkWize](https://github.com/ev510/walkwize/blob/master/images/screenshot.png)
 
