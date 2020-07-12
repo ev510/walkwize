@@ -8,7 +8,7 @@
 - [Access](#access)
 - [Data](#data)
 - [Example](#example)
-- [More Information](#more-information)
+- [More](#more)
 - [Acknowledgements](#acknowledgements)
 
 
@@ -32,7 +32,7 @@ Historic and real-time pedestrian data from the [City of Melbourne](http://www.p
 
 ![Screenshot of WalkWize](https://github.com/ev510/walkwize/blob/master/images/screenshot.png)
 
-### More Information
+### More
 - [Slides with more detail](https://docs.google.com/presentation/d/1lquPW3F_DqFbnXmrDrySa_LwHwxwSYmDK-njy6EQwbo/edit?usp=sharing)
 - [LinkedIn](https://www.linkedin.com/in/emilyvoytek/)
 
