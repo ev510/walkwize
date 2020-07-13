@@ -107,8 +107,8 @@ def my_custom_plot_weekly(m, ax=None, uncertainty=True, weekly_start=0, figsize=
     figsize: Optional tuple width, height in inches.
     name: Name of seasonality component if changed from default 'weekly'.
     Returns
+    Adapted from:
     -------
-    a list of matplotlib artists
     """
     artists = []
     if not ax:
