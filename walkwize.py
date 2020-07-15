@@ -14,14 +14,17 @@ import timeit
 import s3fs
 import pytz
 
-# Thanks to Dave Montiero of DogGo
-
 
 def get_node_df(location):
-    # Inputs: location as tuple of coords (lat, lon)
-    # Returns: 1-line dataframe to display an icon at that location on a map
+    """Convert location to data frame for plotting.
+    Parameters
+    --------
+    location: location as tuple of coords (lat, lon)
 
-    # Location of Map Marker icon
+    Returns
+    -------
+    1-line dataframe to display an icon at that location on a map
+    """
     icon_data = {
         "url": "https://img.icons8.com/plasticine/100/000000/marker.png",
         "width": 128,
@@ -31,8 +34,15 @@ def get_node_df(location):
 
 
 def pickle_from_S3(key):
-    # Use to pull data from S3 bucket
-    # example: key = 'poisson.p'
+    """Access pickled item from Amazon S3 bucket.
+    Parameters
+    ----------
+    key: name of file in S3 bucket (example: key = 'poisson.p')
+
+    Returns
+    -------
+    The pickled object.
+    """
     bucket = 'walkwize'
     data_location = 's3://{}/{}'.format(bucket, key)
     return pd.read_pickle(data_location)
@@ -40,6 +50,8 @@ def pickle_from_S3(key):
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_ped_stations():
+    """Accesses ped_stations.p from Amazon S3 bucket. Keeps in cache."""
+    # Old version:
     # ped_stations = pd.read_json("https://data.melbourne.vic.gov.au/resource/h57g-5234.json")
     # ped_stations.set_index("sensor_id",inplace=True)
     return pickle_from_S3('ped_stations.p')
@@ -47,8 +59,19 @@ def get_ped_stations():
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_map_data():
-    # Pulls map data from S3 bucket, extracts geodatabase for nodes and edges
-    # Calculate centroids, used in interpolation
+    """Pulls map data from S3 bucket, extracts geodatabase for nodes and edges,
+    and calculates centroids for later interpolation.
+    Parameters
+    ----------
+    key: name of mapdata in S3 bucket
+
+    Returns
+    -------
+    G: graph object
+    gdf_edges: geodatabase of graph edges, with calculated centroids
+    gdf_nodes: geodatabase of graph nodes
+    """
+
     G = pickle_from_S3('G.p')
     gdf_nodes, gdf_edges = ox.utils_graph.graph_to_gdfs(
         G, nodes=True, edges=True, node_geometry=True, fill_edge_geometry=True)
@@ -61,13 +84,23 @@ def get_map_data():
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_modeled_future():
-    # Returns DataFrame with modeled future from S3 bucket. Currently through end of 2020.
+    """Returns modeled_future.p from Amazon S3 bucket. Keeps in cache."""
     return pickle_from_S3('modeled_future.p')
 
 
 def make_pedlinelayer(gdf_nodes, gdf_edges):
-    # Creates pedestrian density layer for mapdeck
-    # Currently heat map. Code below preserved for edge plotting.
+    """ Creates pedestrian density layer for mapdeck.
+    Currently plots as heat map. Code below preserved for edge plotting.
+
+    Parameters
+    ----------
+    gdf_edges: geodatabase of graph edges, with calculated centroids
+    gdf_nodes: geodatabase of graph nodes
+
+    Returns
+    -------
+    mapdeck layer from interpolated values
+    """
     color_map = cm.get_cmap('YlOrRd', 1000)  # Necessary?
     ped_rate = gdf_edges['ped_rate']
     # Changing data formats for pdk.layer input
@@ -115,9 +148,17 @@ def make_pedlinelayer(gdf_nodes, gdf_edges):
 
 
 def make_linelayer(df, color_array):
-    # Inputs: df with [startlat, startlon, destlat, destlon] and font color as str([R,G,B]) - yes '[R,G,B]'
-    # Plots lines between each line's [startlon, startlat] and [destlon, destlat]
-    # Returns: pydeck LineLayer
+    """ Creates pydeck layer from edges in df (path, density, etc).
+    Parameters
+    ----------
+    df: DataFrame  with cols [startlat, startlon, destlat, destlon]
+    color_array: color as str([R,G,B]), yes '[R,G,B]'
+
+    Returns
+    -------
+    pydeck LineLayer with path edges highlighted.
+    """
+
     return pdk.Layer(
         type='LineLayer',
         data=df,
@@ -129,6 +170,8 @@ def make_linelayer(df, color_array):
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_ped_station_data():
+
+
     # Returns: DataFrame of ped station ID, location and other info
     ped_stations = pd.read_json(
         "https://data.melbourne.vic.gov.au/resource/h57g-5234.json")
