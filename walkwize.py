@@ -29,6 +29,7 @@ def get_node_df(location):
         "anchorY": 128}
     return pd.DataFrame({'lat': [location[0]], 'lon': [location[1]], 'icon_data': [icon_data]})
 
+
 def pickle_from_S3(key):
     # Use to pull data from S3 bucket
     # example: key = 'poisson.p'
@@ -36,11 +37,13 @@ def pickle_from_S3(key):
     data_location = 's3://{}/{}'.format(bucket, key)
     return pd.read_pickle(data_location)
 
+
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_ped_stations():
     # ped_stations = pd.read_json("https://data.melbourne.vic.gov.au/resource/h57g-5234.json")
     # ped_stations.set_index("sensor_id",inplace=True)
     return pickle_from_S3('ped_stations.p')
+
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_map_data():
@@ -55,15 +58,17 @@ def get_map_data():
         lambda r: r.geometry.centroid.y, axis=1)
     return G, gdf_nodes, gdf_edges
 
+
 @st.cache(suppress_st_warning=True, allow_output_mutation=True, show_spinner=False)
 def get_modeled_future():
     # Returns DataFrame with modeled future from S3 bucket. Currently through end of 2020.
     return pickle_from_S3('modeled_future.p')
 
+
 def make_pedlinelayer(gdf_nodes, gdf_edges):
     # Creates pedestrian density layer for mapdeck
     # Currently heat map. Code below preserved for edge plotting.
-    color_map = cm.get_cmap('YlOrRd', 1000) # Necessary?
+    color_map = cm.get_cmap('YlOrRd', 1000)  # Necessary?
     ped_rate = gdf_edges['ped_rate']
     # Changing data formats for pdk.layer input
     gdf = pd.DataFrame({
@@ -272,7 +277,7 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
     for i in range(len(optimized_route) - 1):
         source, target = optimized_route[i], optimized_route[i + 1]
         optimized_people += lengths[(source, target, 0)] * \
-             (1 / 4000) * ped_rates[(source, target, 0)]
+            (1 / 4000) * ped_rates[(source, target, 0)]
         optimized_length += lengths[(source, target, 0)]
 
     # These are lists of origin/destination coords of the paths that the routes take
@@ -283,7 +288,7 @@ def calculate_routes(G, gdf_nodes, gdf_edges, start_node, end_node, factor):
                              'destlat': short_dest_lat, 'destlon': short_dest_lon})
     short_layer = make_linelayer(short_df, '[160,160,160]')
 
-    #These are lists of origin/destination coords of the paths that the routes take
+    # These are lists of origin/destination coords of the paths that the routes take
     opt_start_lat, opt_start_lon, opt_dest_lat, opt_dest_lon = nodes_to_lats_lons(
         gdf_nodes, optimized_route)
     # Convert to DataFrame
